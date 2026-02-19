@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       ],
       child: GetMaterialApp(
         debugShowCheckedModeBanner: false,
-        initialRoute: AppRoutes.qrcode,
+        initialRoute: AppRoutes.login,
         getPages: AppRoutes.pages,
       ),
     );

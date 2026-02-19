@@ -7,7 +7,34 @@ class AuthCubit extends Cubit<AuthState> {
 
   AuthCubit(this.authService) : super(AuthInitial());
 
-  // LOGIN
+  // REGISTER
+  Future<void> register({
+    required String firstName,
+    required String secondName,
+    required String nationalId,
+    required String contact,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      emit(AuthLoading());
+
+      final response = await authService.register(
+        firstName: firstName,
+        secondName: secondName,
+        nationalId: nationalId,
+        contact: contact,
+        email: email,
+        password: password,
+      );
+
+      emit(AuthRegistered(response));
+    } catch (e) {
+      emit(AuthFailure(e.toString()));
+    }
+  }
+
+  // LOGIN (leave as is for now)
   Future<void> login({
     required String email,
     required String password,
@@ -15,39 +42,12 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       emit(AuthLoading());
 
-      final token = await authService.login(
-        email: email,
-        password: password,
-      );
+      final token =
+          await authService.login(email: email, password: password);
 
       emit(AuthSuccess(token));
     } catch (e) {
       emit(AuthFailure(e.toString()));
     }
-  }
-
-  // REGISTER
-  Future<void> register({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    try {
-      emit(AuthLoading());
-
-      final user = await authService.register(
-        name: name,
-        email: email,
-        password: password,
-      );
-
-      emit(AuthRegistered(user));
-    } catch (e) {
-      emit(AuthFailure(e.toString()));
-    }
-  }
-
-  void logout() {
-    emit(AuthInitial());
   }
 }
