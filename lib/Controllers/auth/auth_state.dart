@@ -30,10 +30,12 @@ class AuthRegistered extends AuthState {
 }
 
 class AuthFailure extends AuthState {
-  final String message;
+  final Map<String, List<String>> fieldErrors;
+  final String? generalError;
 
-  const AuthFailure(this.message);
-
-  @override
-  List<Object?> get props => [message];
+  const AuthFailure({
+    this.fieldErrors = const {},
+    this.generalError,
+  });
 }
+

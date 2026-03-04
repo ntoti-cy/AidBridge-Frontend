@@ -1,35 +1,31 @@
 class Beneficiary {
   int? id;
-  String firstName;
-  String secondName;
+  String name;
+  String aidToken;
   String nationalId;
-  String contact;
-  String? email;
+  String tokenStatus;
 
   Beneficiary({
     this.id,
-    required this.firstName,
-    required this.secondName,
+    required this.name,
+    required this.aidToken,
     required this.nationalId,
-    required this.contact,
-    this.email,
+    required this.tokenStatus,
   });
 
   factory Beneficiary.fromJson(Map<String, dynamic> json) => Beneficiary(
         id: json['id'],
-        firstName: json['first_name'],
-        secondName: json['second_name'],
+        name: json['name'],
+        aidToken: json['aid_token'],
         nationalId: json['national_id'].toString(),
-        contact: json['contact'],
-        email: json['email'],
+        tokenStatus: json['token_status'],
       );
 
   Map<String, dynamic> toMap() => {
         'id': id,
-        'first_name': firstName,
-        'second_name': secondName,
+        'name': name,
+        'aid_token': aidToken,
         'national_id': nationalId,
-        'contact': contact,
-        'email': email,
+        'token_status': tokenStatus,
       };
 }

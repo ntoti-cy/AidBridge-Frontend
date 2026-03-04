@@ -1,3 +1,4 @@
+import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
@@ -18,149 +19,240 @@ class Register extends StatelessWidget {
     final passwordController = TextEditingController();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(centerTitle: true, title: const Text('Register')),
-
-      body: BlocListener<AuthCubit, AuthState>(
+      backgroundColor: primaryColor.withOpacity(0.10),
+      //appBar: AppBar(centerTitle: true, title: const Text('Register')),
+      body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthRegistered) {
             Get.offAndToNamed(AppRoutes.login);
-          } else if (state is AuthFailure) {
+          }
+
+          if (state is AuthFailure && state.generalError != null) {
             Get.snackbar(
               'Error',
-              state.message,
+              state.generalError!,
               snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: errorColor,
+              colorText: Colors.white,
             );
           }
         },
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Center(
-              child: Container(
-                width: 300,
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black,
-                      blurRadius: 7,
-                      offset: Offset(0, 5),
-                    ),
-                  ],
+        builder: (context, state) {
+          Map<String, List<String>> errors = {};
+
+          if (state is AuthFailure) {
+            errors = state.fieldErrors;
+          }
+
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 50),
+
+                ClipOval(
+                  child: Image.asset(
+                    'lib/assets/images/aidbridge_logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: firstnameController,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
-                        prefixIcon: Icon(Icons.person),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Center(
+                    child: Container(
+                      width: 300,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black,
+                            blurRadius: 7,
+                            offset: Offset(0, 5),
+                          ),
+                        ],
                       ),
-                    ),
-                    TextField(
-                      controller: secondnameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Second Name',
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                    ),
-                    TextField(
-                      controller: nationalidController,
-                      decoration: const InputDecoration(
-                        labelText: 'National ID',
-                        prefixIcon: Icon(Icons.assignment_ind),
-                      ),
-                    ),
-                    TextField(
-                      controller: contactController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact',
-                        prefixIcon: Icon(Icons.phone),
-                      ),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
-                      ),
-                    ),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.password),
-                      ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 20),
-          
-                    ElevatedButton(
-                      onPressed: () {
-                        if (firstnameController.text.isEmpty ||
-                            secondnameController.text.isEmpty ||
-                            nationalidController.text.isEmpty ||
-                            contactController.text.isEmpty ||
-                            emailController.text.isEmpty ||
-                            passwordController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Please fill all fields"),
-                              backgroundColor: Colors.red,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 10),
+
+                          const Text(
+                            "Create Account",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
                             ),
-                          );
-                          return;
-                        }
-          
-                        context.read<AuthCubit>().register(
-                          firstName: firstnameController.text.trim(),
-                          secondName: secondnameController.text.trim(),
-                          nationalId: nationalidController.text.trim(),
-                          contact: contactController.text.trim(),
-                          email: emailController.text.trim(),
-                          password: passwordController.text.trim(),
-                        );
-                      },
-          
-                      child: const Text('Register'),
-                    ),
-                    SizedBox(height: 16),
-          
-                    GestureDetector(
-                      onTap: () => Get.offAndToNamed(AppRoutes.login),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: "Already have an account? ",
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 14,
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          TextField(
+                            controller: firstnameController,
+                            decoration: InputDecoration(
+                              labelText: 'First Name',
+                              prefixIcon: const Icon(Icons.person_outline),
+                              errorText: errors["first_name"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "first_name",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller: secondnameController,
+                            decoration: InputDecoration(
+                              labelText: 'Second Name',
+                              prefixIcon: const Icon(Icons.person_outline),
+                              errorText: errors["second_name"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "second_name",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller: nationalidController,
+                            decoration: InputDecoration(
+                              labelText: 'National ID',
+                              prefixIcon: const Icon(
+                                Icons.assignment_ind_outlined,
+                              ),
+                              errorText: errors["national_id"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "national_id",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller: contactController,
+                            decoration: InputDecoration(
+                              labelText: 'Contact',
+                              prefixIcon: const Icon(Icons.phone_outlined),
+                              errorText: errors["contact"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "contact",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller: emailController,
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              errorText: errors["email"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "email",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.password),
+                              errorText: errors["password"]?.first,
+                            ),
+                            onChanged: (_) {
+                              context.read<AuthCubit>().clearFieldError(
+                                "password",
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 25),
+
+                          state is AuthLoading
+                              ? const CircularProgressIndicator(
+                                color: successColor,
+                              )
+                              : ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: cardColor,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 40,
+                                      vertical: 15,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    context.read<AuthCubit>().register(
+                                      firstName: firstnameController.text
+                                          .trim(),
+                                      secondName: secondnameController.text
+                                          .trim(),
+                                      nationalId: nationalidController.text
+                                          .trim(),
+                                      contact: contactController.text.trim(),
+                                      email: emailController.text.trim(),
+                                      password: passwordController.text.trim(),
+                                    );
+                                  },
+                                  child: const Text('Register'),
+                                ),
+
+                          const SizedBox(height: 16),
+
+                          GestureDetector(
+                            onTap: () => Get.offAndToNamed(AppRoutes.login),
+                            child: const Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: "Already have an account? ",
+                                    style: TextStyle(color: Colors.black87),
+                                  ),
+                                  TextSpan(
+                                    text: "Login",
+                                    style: TextStyle(
+                                      color: Color.fromARGB(255, 22, 148, 212),
+                                      fontWeight: FontWeight.w100,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            TextSpan(
-                              text: "Login",
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

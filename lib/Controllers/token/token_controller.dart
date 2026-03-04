@@ -1,5 +1,5 @@
-import '../../Models/token_model.dart';
 import '../help/db_helper.dart';
+import '../../Models/token_model.dart';
 
 class TokenController {
   final DBHelper dbHelper = DBHelper();
@@ -8,12 +8,9 @@ class TokenController {
     return await dbHelper.getTokens();
   }
 
-  Future<bool> validateToken(String tokenValue) async {
-    final tokens = await getTokens();
-    final t = tokens.firstWhere(
-        (t) => t.tokenValue == tokenValue && !t.used,
-        orElse: () => Token(id: 0, tokenValue: '',  nationalId: '',  used: true));
-    return t.id != 0;
+  // Offline token check
+  Future<String> checkToken(String tokenValue) async {
+    return await dbHelper.getTokenStatus(tokenValue);
   }
 
   Future<void> markTokenUsed(String tokenValue) async {
