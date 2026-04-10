@@ -42,4 +42,20 @@ class AuthService {
 
     return response.data["access_token"];
   }
+
+
+  Future<Map<String, dynamic>> getUserProfile(String token) async {
+  final response = await dio.get(
+    '/me', // Your new Python endpoint
+    options: Options(
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    ),
+  );
+  return response.data;
 }
+
+}
+
+

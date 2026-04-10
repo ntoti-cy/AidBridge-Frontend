@@ -1,47 +1,36 @@
+import 'package:aid_bridge/Configs/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart'; // Ensure this package is in pubspec.yaml
-import 'dart:async'; // Required for the Timer
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:async';
 
-class Qrcode extends StatefulWidget {
-  const Qrcode({super.key});
+class QrCode extends StatefulWidget {
+  const QrCode({super.key});
 
   @override
-  _QrDisplayScreenState createState() => _QrDisplayScreenState();
+  State<QrCode> createState() => _QrCodeState();
 }
 
-class _QrDisplayScreenState extends State<Qrcode> {
-  // CONFIGURATION
-  int timeLeft = 120; // 2 Minutes in seconds
+class _QrCodeState extends State<QrCode> {
+  int maxTime = 120;
+  int timeLeft = 120;
   Timer? _timer;
   bool isExpired = false;
-  // ignore: unused_field
-  double _originalBrightness = 0.5;
+  bool _showCode = false; // Controls visibility of the manual code
 
-  // This is the "Secure Payload" - In reality, this comes from your database
-  // It contains the ID + Timestamp + Secret Hash
+  final String manualToken = "AID-992-X8Z";
   final String qrData = '{"id":"22-2278", "token":"x8z-99a-secure", "exp":"120"}';
 
   @override
   void initState() {
     super.initState();
     startTimer();
-    setHighBrightness();
-  }
-
-  void setHighBrightness() {
-    // In a real app, use the 'screen_brightness' package here.
-    // For now, we simulate it by just printing to console.
-    print("Setting Screen Brightness to 100%");
   }
 
   void startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (timeLeft > 0) {
-        setState(() {
-          timeLeft--;
-        });
+        setState(() => timeLeft--);
       } else {
-        // Time is up!
         setState(() {
           isExpired = true;
           _timer?.cancel();
@@ -52,121 +41,224 @@ class _QrDisplayScreenState extends State<Qrcode> {
 
   @override
   void dispose() {
-    _timer?.cancel(); // Always stop the timer when leaving the screen
+    _timer?.cancel();
     super.dispose();
   }
 
-  // Helper to format 120 seconds into "02:00"
-  String get timerText {
-    int minutes = timeLeft ~/ 60;
-    int seconds = timeLeft % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
+  // Helper to determine if we are in the "Warning Zone"
+  bool get isWarning => timeLeft <= 30 && !isExpired;
 
   @override
   Widget build(BuildContext context) {
+    double progress = timeLeft / maxTime;
+    
+    // Choose color based on time remaining
+    Color activeColor = isExpired ? errorColor : (isWarning ? Colors.red : primaryColor);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text("Secure Token"),
-        backgroundColor: isExpired ? Colors.grey : Colors.blue[800],
+        title: const Text("Digital Aid Token", 
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        foregroundColor: textColor,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            const SizedBox(height: 20),
             
-            // --- UI ELEMENT: STATUS LABEL (Page 4 Logic) ---
-            Container(
-              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-              decoration: BoxDecoration(
-                color: isExpired ? Colors.red[100] : Colors.green[100],
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                isExpired ? "TOKEN EXPIRED" : "TOKEN ACTIVE",
-                style: TextStyle(
-                  color: isExpired ? Colors.red : Colors.green[800],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            SizedBox(height: 30),
-
-            // --- UI ELEMENT: QR CODE (Page 3 Logic) ---
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // The QR Code
-                Opacity(
-                  opacity: isExpired ? 0.1 : 1.0, // Fade out if expired
-                  child: QrImageView(
-                    data: qrData,
-                    version: QrVersions.auto,
-                    size: 280.0,
+            // --- 1. THE QR VAULT AREA ---
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 280,
+                    height: 280,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 8,
+                      backgroundColor: Colors.grey.withOpacity(0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+                    ),
                   ),
-                ),
-                // Overlay "Expired" icon if time is up
-                if (isExpired)
-                  Icon(Icons.lock_clock, size: 80, color: Colors.red),
-              ],
-            ),
-            
-            SizedBox(height: 30),
-
-            // --- UI ELEMENT: COUNTDOWN TIMER ---
-            Text(
-              isExpired ? "00:00" : timerText,
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Monospace', // Looks like a digital clock
-                color: isExpired ? Colors.red : Colors.black,
+                  
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: activeColor.withOpacity(0.1),
+                          blurRadius: 40,
+                          spreadRadius: 2,
+                        )
+                      ],
+                    ),
+                    child: Opacity(
+                      opacity: isExpired ? 0.2 : 1.0,
+                      child: QrImageView(
+                        data: qrData,
+                        size: 200,
+                        foregroundColor: textColor,
+                      ),
+                    ),
+                  ),
+                  
+                  if (isExpired)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.timer_off_rounded, size: 60, color: errorColor),
+                        const SizedBox(height: 8),
+                        const Text("EXPIRED", 
+                          style: TextStyle(color: errorColor, fontWeight: FontWeight.bold))
+                      ],
+                    ),
+                ],
               ),
             ),
+
+            const SizedBox(height: 15),
+            // Time remaining text indicator
             Text(
-              "Expires in",
-              style: TextStyle(color: Colors.grey),
+              isExpired ? "Token has expired" : "Expires in $timeLeft seconds",
+              style: TextStyle(
+                color: activeColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
 
-            SizedBox(height: 40),
+            const SizedBox(height: 35),
 
-            // --- UI ELEMENT: REFRESH BUTTON ---
-            // Only clickable if expired
+            // --- 2. SECURE MANUAL CODE SECTION ---
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isWarning ? Colors.red.withOpacity(0.3) : Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    "MANUAL COLLECTION CODE",
+                    style: TextStyle(
+                      fontSize: 11, 
+                      letterSpacing: 1.2, 
+                      fontWeight: FontWeight.bold,
+                      color: textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Toggleable visibility text
+                      Text(
+                        isExpired 
+                          ? "•••••••••••" 
+                          : (_showCode ? manualToken : "•••••••••••"),
+                        style: TextStyle(
+                          fontSize: 24,
+                          letterSpacing: _showCode ? 2 : 4,
+                          fontWeight: FontWeight.w900,
+                          color: isExpired ? Colors.grey : textColor,
+                          fontFamily: 'Monospace',
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      // Visibility Toggle Button
+                      IconButton(
+                        onPressed: isExpired ? null : () {
+                          setState(() => _showCode = !_showCode);
+                        },
+                        icon: Icon(
+                          _showCode ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          color: isExpired ? Colors.grey : primaryColor,
+                        ),
+                      )
+                    ],
+                  ),
+                  const Text(
+                    "Reveal only when asked by a distribution officer",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: textSecondaryColor),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            _buildInfoTile(
+              icon: isWarning ? Icons.warning_amber_rounded : Icons.security_rounded,
+              title: isExpired ? "Token Invalid" : (isWarning ? "Expiring Soon!" : "Secure Token"),
+              subtitle: isExpired 
+                ? "Please generate a new token." 
+                : "This code is unique to your account and session.",
+              color: activeColor,
+            ),
+
+            const SizedBox(height: 30),
+
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: isExpired 
-                  ? () {
-                      // Reset Logic
-                      setState(() {
-                        timeLeft = 120;
-                        isExpired = false;
-                        startTimer();
-                      });
-                    } 
-                  : null, // Disabled if still active
-                icon: Icon(Icons.refresh),
-                label: Text("GENERATE NEW TOKEN"),
+              child: ElevatedButton(
+                onPressed: isExpired ? () {
+                  setState(() {
+                    timeLeft = maxTime;
+                    isExpired = false;
+                    _showCode = false; // Reset visibility on new token
+                    startTimer();
+                  });
+                } : null,
                 style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  backgroundColor: Colors.blue[800],
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade200,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  isExpired ? "GENERATE NEW TOKEN" : "TOKEN ACTIVE",
+                  style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
                 ),
               ),
             ),
-            
-            SizedBox(height: 10),
-            Text(
-              "Do not screenshot. This code is time-sensitive.",
-              style: TextStyle(color: Colors.red[300], fontSize: 12),
-            )
+            const SizedBox(height: 30),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoTile({required IconData icon, required String title, required String subtitle, required Color color}) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+              Text(subtitle, style: const TextStyle(color: textSecondaryColor, fontSize: 12)),
+            ],
+          ),
+        )
+      ],
     );
   }
 }

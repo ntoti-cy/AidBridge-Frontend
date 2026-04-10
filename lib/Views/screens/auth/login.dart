@@ -20,8 +20,42 @@ class Login extends StatelessWidget {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
-            Get.toNamed(AppRoutes.beneficiaryList);
-          }
+            // Show offline snackbar if offline
+            if (state.token == "OFFLINE_TOKEN") {
+              Get.snackbar(
+                "Offline Mode",
+                "Logged in offline",
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
+            // 🚨 OPTION 2: READING DATA DIRECTLY FROM THE /me ENDPOINT 🚨
+           
+            final role = state.data?['role'] ?? 'beneficiary';
+            final requiresPasswordChange = state.data?['requires_password_change'] ?? false;
+
+            // 1. Check if they are forced to change password
+            if (requiresPasswordChange) {
+              // Get.toNamed('/change_password'); 
+            } 
+            // 2. Route Aid Workers
+            else if (role == 'aid_worker') {
+              Get.toNamed(AppRoutes.beneficiaryList);
+            } 
+            // 3. Route Beneficiaries
+            else {
+              Get.toNamed(
+                AppRoutes.beneficiaryDashboard,
+                arguments: {
+                  // We get these directly from the Python /me JSON response!
+                  'firstName': state.data?['first_name'] ?? 'User',
+                  'secondName': state.data?['second_name'] ?? '',
+                },
+              );
+            }
+            }
 
           if (state is AuthFailure && state.generalError != null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -42,36 +76,16 @@ class Login extends StatelessWidget {
           return SingleChildScrollView(
             child: Column(
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
 
                 ClipOval(
                   child: Image.asset(
                     'lib/assets/images/aidbridge_logo.png',
-                    width: 100,
-                    height: 100,
+                    width: 120,
+                    height: 120,
                     fit: BoxFit.cover,
                   ),
                 ),
-
-                const SizedBox(height: 20),
-
-                const Text(
-                  "Welcome Back",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: primaryColor,
-                  ),
-                ),
-
-                const SizedBox(height: 5),
-
-                const Text(
-                  "Sign in to continue",
-                  style: TextStyle(fontSize: 14, color: primaryColor),
-                ),
-
-                const SizedBox(height: 30),
 
                 Padding(
                   padding: const EdgeInsets.all(10.0),
@@ -84,15 +98,35 @@ class Login extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: const [
                           BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
+                            color: Colors.black,
+                            blurRadius: 7,
+                            offset: Offset(0, 5),
                           ),
                         ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          const SizedBox(height: 10),
+
+                          const Text(
+                            "Welcome Back",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+
+                          const SizedBox(height: 5),
+
+                          const Text(
+                            "Sign in to continue",
+                            style: TextStyle(fontSize: 14, color: primaryColor),
+                          ),
+
+                          const SizedBox(height: 20),
+
                           TextField(
                             controller: emailController,
                             decoration: InputDecoration(
@@ -107,7 +141,7 @@ class Login extends StatelessWidget {
                             },
                           ),
 
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 15),
 
                           TextField(
                             controller: passwordController,
@@ -124,12 +158,29 @@ class Login extends StatelessWidget {
                             },
                           ),
 
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 25),
+                          //Syncing state
+                          if (state is AuthSyncing)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10.0,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  CircularProgressIndicator(
+                                    color: successColor,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text("Syncing offline data..."),
+                                ],
+                              ),
+                            ),
 
                           state is AuthLoading
                               ? const CircularProgressIndicator(
-                                color: successColor,
-                              )
+                                  color: successColor,
+                                )
                               : ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: primaryColor,
@@ -150,37 +201,34 @@ class Login extends StatelessWidget {
                                   },
                                   child: const Text("Login"),
                                 ),
+                          const SizedBox(height: 16),
+
+                          GestureDetector(
+                            onTap: () => Get.toNamed(AppRoutes.register),
+                            child: const Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: "Don't have an account? ",
+                                    style: TextStyle(color: Colors.black87),
+                                  ),
+                                  TextSpan(
+                                    text: "Register",
+                                    style: TextStyle(
+                                      color: Color.fromARGB(255, 22, 148, 212),
+                                      fontWeight: FontWeight.bold,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 15),
-
-                GestureDetector(
-                  onTap: () => Get.toNamed(AppRoutes.register),
-                  child: const Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: "Don't have an account? ",
-                          style: TextStyle(color: Colors.black87),
-                        ),
-                        TextSpan(
-                          text: "Register",
-                          style: TextStyle(
-                            color: Color.fromARGB(255, 22, 148, 212),
-                            fontWeight: FontWeight.w100,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
               ],
             ),
           );

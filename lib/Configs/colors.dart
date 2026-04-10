@@ -12,6 +12,7 @@ const Color errorColor = Color(0xFFDC2626);
 
 // NEUTRAL COLORS – Layout & Text
 const Color backgroundColor = Color(0xFFF9FAFB);   
-const Color cardColor = Color(0xFFFFFFFF);         
+const Color cardColor = Color(0xFFFFFFFF);    
+const Color containerColor = Color.fromARGB(255, 96, 178, 246);  
 const Color textColor = Color(0xFF111827);         
 const Color textSecondaryColor = Color(0xFF6B7280);
