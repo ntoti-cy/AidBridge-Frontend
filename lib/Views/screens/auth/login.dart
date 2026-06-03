@@ -89,7 +89,7 @@ class Login extends StatelessWidget {
 
                 ClipOval(
                   child: Image.asset(
-                    'lib/assets/images/aidbridge_logo.png',
+                    'lib/Assets/images/aidbridge_logo.png',
                     width: 120,
                     height: 120,
                     fit: BoxFit.cover,
