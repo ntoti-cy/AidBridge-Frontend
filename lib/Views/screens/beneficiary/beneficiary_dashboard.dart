@@ -1,5 +1,5 @@
 import 'package:aid_bridge/Configs/colors.dart';
-import 'package:aid_bridge/Views/screens/beneficiary/qrcode.dart';
+import 'package:aid_bridge/Routes/app_routes.dart';
 import 'package:aid_bridge/Views/screens/beneficiary/token_status.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -7,12 +7,15 @@ import 'package:get/get.dart';
 class BeneficiaryDashboard extends StatelessWidget {
   final String firstName;
   final String secondName;
+  final String token;
   final bool isEligible;
+  
 
   const BeneficiaryDashboard({
     super.key,
     required this.firstName,
     required this.secondName,
+    required this.token,
     this.isEligible = true,
   });
 
@@ -99,7 +102,7 @@ class BeneficiaryDashboard extends StatelessWidget {
                         title: "Token History",
                         subtitle: "Track your aid collection journey",
                         color: Colors.blue,
-                        onTap: () => Get.to(() => const TokenStatus()),
+                        onTap: () => Get.toNamed( AppRoutes.tokenStatus, arguments: {'token': token} ),
                       ),
                       const SizedBox(height: 12),
                       _buildModernListTile(
@@ -224,7 +227,7 @@ class BeneficiaryDashboard extends StatelessWidget {
                   ),
                   const SizedBox(height: 22),
                   ElevatedButton(
-                    onPressed: isEligible ? () => Get.to(() => const QrCode()) : null,
+                    onPressed: isEligible ? () => Get.toNamed(AppRoutes.qrcode, arguments: {'token': token}) : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: primaryColor,

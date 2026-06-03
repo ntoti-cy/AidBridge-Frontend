@@ -11,7 +11,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   AuthCubit(this.authService) : super(AuthInitial());
 
-  //REGISTER 
+  // REGISTER 
   Future<void> register({
     required String firstName,
     required String secondName,
@@ -22,16 +22,17 @@ class AuthCubit extends Cubit<AuthState> {
   }) async {
     try {
       emit(AuthLoading());
-//Check network before registering
-final connectivityResult = await Connectivity().checkConnectivity();
-if (connectivityResult == ConnectivityResult.none) {
-  emit(AuthFailure(
-    generalError: "You must be online to register for the first time",
-  ));
-  return;
-}
 
-      // Try backend registration
+      // 1. Check network before allowing registration
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        emit(const AuthFailure(
+          generalError: "You must be connected to the internet to register a new account.",
+        ));
+        return; // Stop execution here
+      }
+
+      // 2. Backend registration (Only happens if online)
       final response = await authService.register(
         firstName: firstName,
         secondName: secondName,
@@ -41,29 +42,17 @@ if (connectivityResult == ConnectivityResult.none) {
         password: password,
       );
 
+      emit(AuthRegistered(response));
 
-// Save offline in case of future login without connectivity
-await _localRepo.insertUser(
-  firstName: firstName,
-  secondName: secondName, 
-  nationalId: nationalId,
-  contact: contact,
-  email: email,
-  password: password,
-);
-  
-   emit(AuthRegistered(response));
-  } on DioException catch (e) {
-    emit(AuthFailure(
-      generalError: e.message ?? "Registration failed. Try again.",
-    ));
-  } catch (e) {
-    emit(AuthFailure(generalError: "Unexpected error: $e"));
+    } on DioException catch (e) {
+      emit(AuthFailure(generalError: e.response?.data['error']?.toString() ?? "Registration failed. Try again."));
+    } catch (e) {
+      emit(AuthFailure(generalError: "Unexpected error: $e"));
+    }
   }
-}
 
 
-//LOGIN 
+  // LOGIN 
   Future<void> login({
     required String email,
     required String password,
@@ -71,56 +60,40 @@ await _localRepo.insertUser(
     try {
       emit(AuthLoading());
 
-      // Try backend login
+      // 1. Try backend login first (Online)
       final token = await authService.login(email: email, password: password);
-
-      // Fetch the user profile data using the new token
       final userData = await authService.getUserProfile(token);
+
+      // 2. Save/Update locally so they can log in offline tomorrow
+      await _localRepo.insertUser(
+        firstName: userData['first_name']?.toString() ?? '',
+        secondName: userData['second_name']?.toString() ?? '',
+        nationalId: userData['national_id']?.toString() ?? '',
+        contact: userData['contact']?.toString() ?? '',
+        email: email,
+        password: password, // Store password to verify offline late
+        role: userData['role']?.toString() ?? 'beneficiary',
+      );
+
       emit(AuthSuccess(token, data: userData));
-    } catch (_) {
-      // Fallback offline login
+
+    } catch (e) {
+      // 3. If online login fails 
+      print("Online login failed, attempting offline fallback: $e");
+      
       final localUser = await _localRepo.getUserByEmailAndPassword(email, password);
 
       if (localUser != null) {
-        emit(AuthSuccess("OFFLINE_TOKEN", data: localUser)); // Offline login
+        // Success! Provide a dummy token and the local SQLite data
+        emit(AuthSuccess("OFFLINE_TOKEN", data: localUser)); 
       } else {
-        emit(AuthFailure(generalError: "Login failed. Check credentials."));
+        // Failed offline too (wrong password or user never logged in while online before)
+        emit(const AuthFailure(generalError: "Login failed. Check your credentials or connect to the internet."));
       }
     }
   }
 
-
- // SYNC OFFLINE USERS
-  Future<void> syncOfflineUsers() async {
-    try {
-      emit(AuthSyncing()); // New state for syncing
-
-      final offlineUsers = await _localRepo.getUnsyncedUsers();
-
-      for (var user in offlineUsers) {
-        try {
-          await authService.register(
-            firstName: user['first_name'],
-            secondName: user['second_name'],
-            nationalId: user['national_id'],
-            contact: user['contact'],
-            email: user['email'],
-            password: user['password'],
-          );
-          await _localRepo.markUserAsSynced(user['email']);
-        } catch (_) {
-          // skip user, will retry next time
-        }
-      }
-        
-
-    } catch (_) {
-      // overall sync failure can be ignored or logged
-    }
-  }
-
-
-  // CLEAR FIELD ERRORS
+  // --- CLEAR FIELD ERRORS ---
   void clearFieldError(String field) {
     if (state is AuthFailure) {
       final currentState = state as AuthFailure;

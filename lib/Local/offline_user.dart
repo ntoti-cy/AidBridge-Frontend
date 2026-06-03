@@ -4,7 +4,7 @@ import 'db_helper.dart';
 
 class OfflineUser {
   final DbHelper _dbHelper = DbHelper();
-// Insert user locally
+// Insert user locally online after successfuk login
   Future<void> insertUser({
     required String firstName,
     required String secondName,
@@ -12,6 +12,8 @@ class OfflineUser {
     required String contact,
     required String email,
     required String password,
+    required String role,
+
   }) async {
     final db = await _dbHelper.db;
     await db.insert('users', {
@@ -21,8 +23,11 @@ class OfflineUser {
       'contact': contact,
       'email': email,
       'password': password,
-      'synced': 0,
-    });
+      'role': role, 
+      'synced': 1,
+    },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
 
 
   }

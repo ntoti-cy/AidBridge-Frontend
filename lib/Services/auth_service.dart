@@ -14,7 +14,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await dio.post(
-      '/register',
+      '/api/auth/register',
       data: {
         "first_name": firstName,
         "second_name": secondName,
@@ -33,7 +33,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await dio.post(
-      '/login',
+      '/api/auth/login',
       data: {
         "email": email,
         "password": password,
@@ -46,7 +46,7 @@ class AuthService {
 
   Future<Map<String, dynamic>> getUserProfile(String token) async {
   final response = await dio.get(
-    '/me', // Your new Python endpoint
+    '/api/crud/me', 
     options: Options(
       headers: {
         'Authorization': 'Bearer $token',
@@ -55,6 +55,31 @@ class AuthService {
   );
   return response.data;
 }
+Future<Map<String, dynamic>> requestAidToken(String token) async {
+    final response = await dio.post(
+      '/api/user/request-token',
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+    return response.data;
+  }
+
+Future<Map<String, dynamic>> getTokenHistory(String token) async {
+    final response = await dio.get(
+      '/api/user/token-history',
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+    return response.data;
+  }
+
+
 
 }
 

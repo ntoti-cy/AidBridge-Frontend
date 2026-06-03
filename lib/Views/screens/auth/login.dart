@@ -2,6 +2,7 @@ import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
+import 'package:aid_bridge/Views/screens/officer/officer_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
@@ -29,9 +30,9 @@ class Login extends StatelessWidget {
                 backgroundColor: Colors.orange,
                 colorText: Colors.white,
               );
-              return;
+            
             }
-            // 🚨 OPTION 2: READING DATA DIRECTLY FROM THE /me ENDPOINT 🚨
+            // Reading data from profile
            
             final role = state.data?['role'] ?? 'beneficiary';
             final requiresPasswordChange = state.data?['requires_password_change'] ?? false;
@@ -41,8 +42,16 @@ class Login extends StatelessWidget {
               // Get.toNamed('/change_password'); 
             } 
             // 2. Route Aid Workers
-            else if (role == 'aid_worker') {
-              Get.toNamed(AppRoutes.beneficiaryList);
+              else if (role == 'aid_worker' || role == 'officer') {
+                Get.offAllNamed(
+                  AppRoutes.officerDashboard, 
+                  arguments: {
+                  'firstName': state.data?['first_name'] ?? 'Officer',
+                  'secondName': state.data?['second_name'] ?? '',
+                  'aidCenter': 'HQ Center', // Placeholder, ideally from profile
+                  'token': state.token,
+                });
+
             } 
             // 3. Route Beneficiaries
             else {

@@ -1,6 +1,7 @@
 
 
 import 'package:aid_bridge/Local/db_helper.dart';
+import 'package:sqflite/sqflite.dart';
 
 class CodeRepo {
   final DbHelper _dbHelper = DbHelper();
@@ -9,8 +10,10 @@ class CodeRepo {
     final db = await _dbHelper.db;
     await db.insert('codes', {
       'code': code,
-      'is_used': 0,
-    });
+      'used': 0,
+    },
+     conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<Map<String, dynamic>?> getCode(String code) async {
@@ -30,7 +33,7 @@ class CodeRepo {
 
     await db.update(
       'codes',
-      {'is_used': 1},
+      {'used': 1},
       where: 'code = ?',
       whereArgs: [code],
     );

@@ -22,32 +22,18 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final AuthCubit authCubit;
-  // Use StreamSubscription<List<ConnectivityResult>> for compatibility with latest connectivity_plus
-  late final StreamSubscription<List<ConnectivityResult>> connectivitySubscription;
+  
 
   @override
   void initState() {
     super.initState();
     
-    // 1. Initialize the Cubit once
+    //Initialize the Cubit 
     authCubit = AuthCubit(AuthService());
-
-    // 2. Listen for network changes
-    // This handles the list of results returned by newer versions of the plugin
-    connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
-      // If the list contains any valid connection (wifi, mobile, ethernet) and NOT 'none'
-      if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
-        debugPrint("Network available, syncing offline users...");
-        authCubit.syncOfflineUsers();
-      }
-    });
   }
 
   @override
   void dispose() {
-    // 3. Cancel the subscription to prevent memory leaks
-    connectivitySubscription.cancel();
-    // It's also good practice to close the cubit if it's not needed after MyApp is destroyed
     authCubit.close(); 
     super.dispose();
   }
@@ -56,11 +42,10 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        // Using .value because the cubit is already instantiated in initState
         BlocProvider<AuthCubit>.value(value: authCubit),
       ],
       child: GetMaterialApp(
-        debugShowCheckedModeBanner: false, // Cleaner UI during development
+        debugShowCheckedModeBanner: false, 
         initialRoute: AppRoutes.splash,
         getPages: AppRoutes.pages,
       ),

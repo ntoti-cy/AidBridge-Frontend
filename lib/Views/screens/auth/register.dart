@@ -24,17 +24,10 @@ class Register extends StatelessWidget {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthRegistered) {
-             if (state.data["message"] == "Saved locally (offline mode)") {
-              Get.snackbar(
-                "Offline Mode",
-                "Account saved locally. You can login offline.",
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
+            Get.offAndToNamed(AppRoutes.login);            
             }
-            Get.offAndToNamed(AppRoutes.login);
-          }
+            
+          
 
           if (state is AuthFailure && state.generalError != null) {
             Get.snackbar(

@@ -16,7 +16,7 @@ class OfflineCubit extends Cubit<OfflineState> {
 
     if (code == null) {
       emit(OfflineInvalid("Code not found"));
-    } else if (code['is_used'] == 1) {
+    } else if (code['used'] == 1) {
       emit(OfflineAlreadyUsed("Code already used"));
     } else {
       await repo.markAsUsed(inputCode);

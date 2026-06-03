@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'dart:async';
 import 'package:aid_bridge/Configs/colors.dart';
+import 'package:aid_bridge/Services/auth_service.dart'; // Ensure this path is correct
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'dart:async';
 
 class QrCode extends StatefulWidget {
-  const QrCode({super.key});
+  final String token; // The JWT token passed from the Dashboard
+
+  const QrCode({super.key, required this.token});
 
   @override
   State<QrCode> createState() => _QrCodeState();
@@ -14,19 +19,66 @@ class _QrCodeState extends State<QrCode> {
   int maxTime = 120;
   int timeLeft = 120;
   Timer? _timer;
+  
+  bool isLoading = true;
+  String? errorMessage;
   bool isExpired = false;
-  bool _showCode = false; // Controls visibility of the manual code
+  bool _showCode = false; 
 
-  final String manualToken = "AID-992-X8Z";
-  final String qrData = '{"id":"22-2278", "token":"x8z-99a-secure", "exp":"120"}';
+  String manualToken = "";
+  String qrData = "";
+  String sessionName = "";
+
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    startTimer();
+    _fetchRealToken();
+  }
+
+  Future<void> _fetchRealToken() async {
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final data = await _authService.requestAidToken(widget.token);
+      
+      setState(() {
+        manualToken = data['aid_token'];
+        sessionName = data['session_name'] ?? 'Distribution Center';
+        
+        // Build the JSON payload exactly how the Officer scanner expects it
+        qrData = jsonEncode({
+          "token": manualToken,
+          "exp": maxTime.toString()
+        });
+        
+        isLoading = false;
+      });
+      
+      startTimer();
+    } on DioException catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = e.response?.data['error'] ?? "Failed to connect to the server.";
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = "An unexpected error occurred.";
+      });
+    }
   }
 
   void startTimer() {
+    _timer?.cancel();
+    timeLeft = maxTime;
+    isExpired = false;
+    
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (timeLeft > 0) {
         setState(() => timeLeft--);
@@ -45,21 +97,60 @@ class _QrCodeState extends State<QrCode> {
     super.dispose();
   }
 
-  // Helper to determine if we are in the "Warning Zone"
   bool get isWarning => timeLeft <= 30 && !isExpired;
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: primaryColor),
+              SizedBox(height: 20),
+              Text("Generating Secure Aid Token...", style: TextStyle(color: textSecondaryColor)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: textColor),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline_rounded, color: errorColor, size: 60),
+                const SizedBox(height: 20),
+                Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _fetchRealToken,
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
+                  child: const Text("Try Again"),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     double progress = timeLeft / maxTime;
-    
-    // Choose color based on time remaining
     Color activeColor = isExpired ? errorColor : (isWarning ? Colors.red : primaryColor);
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text("Digital Aid Token", 
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: const Text("Digital Aid Token", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: textColor,
@@ -69,6 +160,8 @@ class _QrCodeState extends State<QrCode> {
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           children: [
+            const SizedBox(height: 10),
+            Text(sessionName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
             const SizedBox(height: 20),
             
             // --- 1. THE QR VAULT AREA ---
@@ -111,13 +204,12 @@ class _QrCodeState extends State<QrCode> {
                   ),
                   
                   if (isExpired)
-                    Column(
+                    const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.timer_off_rounded, size: 60, color: errorColor),
-                        const SizedBox(height: 8),
-                        const Text("EXPIRED", 
-                          style: TextStyle(color: errorColor, fontWeight: FontWeight.bold))
+                        Icon(Icons.timer_off_rounded, size: 60, color: errorColor),
+                        SizedBox(height: 8),
+                        Text("EXPIRED", style: TextStyle(color: errorColor, fontWeight: FontWeight.bold))
                       ],
                     ),
                 ],
@@ -125,14 +217,9 @@ class _QrCodeState extends State<QrCode> {
             ),
 
             const SizedBox(height: 15),
-            // Time remaining text indicator
             Text(
               isExpired ? "Token has expired" : "Expires in $timeLeft seconds",
-              style: TextStyle(
-                color: activeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: activeColor, fontWeight: FontWeight.bold, fontSize: 14),
             ),
 
             const SizedBox(height: 35),
@@ -149,22 +236,14 @@ class _QrCodeState extends State<QrCode> {
                 children: [
                   const Text(
                     "MANUAL COLLECTION CODE",
-                    style: TextStyle(
-                      fontSize: 11, 
-                      letterSpacing: 1.2, 
-                      fontWeight: FontWeight.bold,
-                      color: textSecondaryColor,
-                    ),
+                    style: TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: textSecondaryColor),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Toggleable visibility text
                       Text(
-                        isExpired 
-                          ? "•••••••••••" 
-                          : (_showCode ? manualToken : "•••••••••••"),
+                        isExpired ? "•••••••••••" : (_showCode ? manualToken : "•••••••••••"),
                         style: TextStyle(
                           fontSize: 24,
                           letterSpacing: _showCode ? 2 : 4,
@@ -174,11 +253,8 @@ class _QrCodeState extends State<QrCode> {
                         ),
                       ),
                       const SizedBox(width: 15),
-                      // Visibility Toggle Button
                       IconButton(
-                        onPressed: isExpired ? null : () {
-                          setState(() => _showCode = !_showCode);
-                        },
+                        onPressed: isExpired ? null : () => setState(() => _showCode = !_showCode),
                         icon: Icon(
                           _showCode ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                           color: isExpired ? Colors.grey : primaryColor,
@@ -200,9 +276,7 @@ class _QrCodeState extends State<QrCode> {
             _buildInfoTile(
               icon: isWarning ? Icons.warning_amber_rounded : Icons.security_rounded,
               title: isExpired ? "Token Invalid" : (isWarning ? "Expiring Soon!" : "Secure Token"),
-              subtitle: isExpired 
-                ? "Please generate a new token." 
-                : "This code is unique to your account and session.",
+              subtitle: isExpired ? "Please generate a new token." : "This code is unique to your account and session.",
               color: activeColor,
             ),
 
@@ -211,14 +285,7 @@ class _QrCodeState extends State<QrCode> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: isExpired ? () {
-                  setState(() {
-                    timeLeft = maxTime;
-                    isExpired = false;
-                    _showCode = false; // Reset visibility on new token
-                    startTimer();
-                  });
-                } : null,
+                onPressed: isExpired ? () => _fetchRealToken() : null, // Re-fetches a fresh token from backend
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,

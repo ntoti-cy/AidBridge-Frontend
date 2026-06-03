@@ -26,11 +26,12 @@ CREATE TABLE users (
   contact TEXT,
   email TEXT,
   password TEXT,
+  role TEXT,
   synced INTEGER DEFAULT 0
 )
 ''');
 
- await database.execute('''
+        await database.execute('''
     CREATE TABLE codes(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT UNIQUE,
