@@ -1,6 +1,5 @@
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
-import 'package:aid_bridge/Views/screens/beneficiary/token_status.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

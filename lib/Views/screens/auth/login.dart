@@ -2,7 +2,6 @@ import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
-import 'package:aid_bridge/Views/screens/officer/officer_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
