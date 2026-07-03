@@ -12,15 +12,22 @@ class Login extends StatelessWidget {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  bool _parseBool(dynamic value, {bool defaultVal = false}) {
+    if (value == null) return defaultVal;
+    if (value is bool) return value;
+    if (value is int) return value == 1;
+    return defaultVal;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: primaryColor.withOpacity(0.10),
       // appBar: AppBar(centerTitle: true, title: const Text("LOGIN")),
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
-            // Show offline snackbar if offline
             if (state.token == "OFFLINE_TOKEN") {
               Get.snackbar(
                 "Offline Mode",
@@ -29,49 +36,69 @@ class Login extends StatelessWidget {
                 backgroundColor: Colors.orange,
                 colorText: Colors.white,
               );
-            
             }
-            // Reading data from profile
-           
-            final role = state.data?['role'] ?? 'beneficiary';
-            final requiresPasswordChange = state.data?['requires_password_change'] ?? false;
+            final data = state.data ?? {};
 
-            // 1. Check if they are forced to change password
-            if (requiresPasswordChange) {
-              // Get.toNamed('/change_password'); 
-            } 
-            // 2. Route Aid Workers
-              else if (role == 'aid_worker' || role == 'officer') {
+            final role = data['role'] ?? 'beneficiary';
+
+            final requiresPasswordChange = _parseBool(
+              data['requires_password_change'],
+            );
+
+            final isProfileComplete = _parseBool(
+              data['is_profile_complete'],
+              defaultVal: true,
+            );
+
+            // Aid workers only
+            if (role == "aid_worker") {
+              if (requiresPasswordChange) {
+                Get.offAllNamed(AppRoutes.changePassword);
+              } else {
                 Get.offAllNamed(
-                  AppRoutes.officerDashboard, 
+                  AppRoutes.officerDashboard,
                   arguments: {
-                  'firstName': state.data?['first_name'] ?? 'Officer',
-                  'secondName': state.data?['second_name'] ?? '',
-                  'aidCenter': 'HQ Center', // Placeholder, ideally from profile
-                  'token': state.token,
-                });
+                    'firstName': state.data?['first_name'] ?? '',
+                    'secondName': state.data?['second_name'] ?? '',
+                    'aidCenter': state.data?['assigned_center_name'] ?? '',
+                    'token': state.token,
+                  },
+                );
+              }
 
-            } 
-            // 3. Route Beneficiaries
-            else {
-              Get.toNamed(
-                AppRoutes.beneficiaryDashboard,
-                arguments: {
-                  // We get these directly from the Python /me JSON response!
-                  'firstName': state.data?['first_name'] ?? 'User',
-                  'secondName': state.data?['second_name'] ?? '',
-                },
+              return;
+            }
+
+            // Beneficiary only
+            if (!isProfileComplete) {
+              Get.offAllNamed(
+                AppRoutes.completeProfile,
+                arguments: data,);
+
+              return;
+            }
+
+            Get.offAllNamed(
+              AppRoutes.beneficiaryDashboard,
+              arguments: {
+                'firstName': state.data?['first_name'] ?? '',
+                'secondName': state.data?['second_name'] ?? '',
+                'token': state.token,
+              },
+            );
+
+            return;
+          }
+
+          if (state is AuthFailure) {
+            if (state.generalError != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.generalError!),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
-            }
-
-          if (state is AuthFailure && state.generalError != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.generalError!),
-                backgroundColor: Colors.red,
-              ),
-            );
           }
         },
         builder: (context, state) {

@@ -1,29 +1,39 @@
 class Token {
-  int? id;
-  String tokenValue;
-  String nationalId; // Linked to beneficiary
-  bool used;
+  final String aidToken;
+  final String session;
+  final String status;
+  final String? issuedAt;
+  final String? expiresAt;
+  final bool used;
 
   Token({
-    this.id,
-    required this.tokenValue,
-    required this.nationalId,
+    required this.aidToken,
+    required this.session,
+    required this.status,
+    this.issuedAt,
+    this.expiresAt,
     this.used = false,
   });
 
-  // Convert DB Map to Token
-  factory Token.fromJson(Map<String, dynamic> map) => Token(
-        id: map['id'],
-        tokenValue: map['token'],
-        nationalId: map['national_id'],
-        used: map['used'] == 1,
-      );
+  factory Token.fromJson(Map<String, dynamic> json) {
+    return Token(
+      aidToken: json["aid_token"] ?? "",
+      session: json["session"] ?? "",
+      status: json["status"] ?? "",
+      issuedAt: json["issued_at"],
+      expiresAt: json["expires_at"],
+      used: (json["used"] ?? 0) == 1,
+    );
+  }
 
-  // Convert Token to Map for DB insert
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'token': tokenValue,
-        'national_id': nationalId,
-        'used': used ? 1 : 0,
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      "aid_token": aidToken,
+      "session": session,
+      "status": status,
+      "issued_at": issuedAt,
+      "expires_at": expiresAt,
+      "used": used ? 1 : 0,
+    };
+  }
 }

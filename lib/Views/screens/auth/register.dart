@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 class Register extends StatelessWidget {
   const Register({super.key});
 
+
   @override
   Widget build(BuildContext context) {
     final firstnameController = TextEditingController();
@@ -19,6 +20,7 @@ class Register extends StatelessWidget {
     final passwordController = TextEditingController();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: primaryColor.withOpacity(0.10),
       //appBar: AppBar(centerTitle: true, title: const Text('Register')),
       body: BlocConsumer<AuthCubit, AuthState>(

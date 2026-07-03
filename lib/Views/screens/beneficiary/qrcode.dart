@@ -1,94 +1,65 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:aid_bridge/Configs/colors.dart';
-import 'package:aid_bridge/Services/auth_service.dart'; // Ensure this path is correct
-import 'package:dio/dio.dart';
+import 'package:aid_bridge/Controllers/token/token_cubit.dart';
+import 'package:aid_bridge/Controllers/token/token_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 class QrCode extends StatefulWidget {
-  final String token; // The JWT token passed from the Dashboard
-
-  const QrCode({super.key, required this.token});
+  const QrCode({super.key});
 
   @override
   State<QrCode> createState() => _QrCodeState();
 }
 
 class _QrCodeState extends State<QrCode> {
-  int maxTime = 120;
+  final int maxTime = 120;
+
   int timeLeft = 120;
+
   Timer? _timer;
-  
-  bool isLoading = true;
-  String? errorMessage;
+
   bool isExpired = false;
-  bool _showCode = false; 
+  bool showCode = false;
 
-  String manualToken = "";
   String qrData = "";
+  String manualToken = "";
   String sessionName = "";
-
-  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    _fetchRealToken();
-  }
 
-  Future<void> _fetchRealToken() async {
-
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
+    Future.microtask(() {
+      context.read<TokenCubit>().requestToken();
     });
-
-    try {
-      final data = await _authService.requestAidToken(widget.token);
-      
-      setState(() {
-        manualToken = data['aid_token'];
-        sessionName = data['session_name'] ?? 'Distribution Center';
-        
-        // Build the JSON payload exactly how the Officer scanner expects it
-        qrData = jsonEncode({
-          "token": manualToken,
-          "exp": maxTime.toString()
-        });
-        
-        isLoading = false;
-      });
-      
-      startTimer();
-    } on DioException catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = e.response?.data['error'] ?? "Failed to connect to the server.";
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = "An unexpected error occurred.";
-      });
-    }
   }
 
   void startTimer() {
     _timer?.cancel();
+
     timeLeft = maxTime;
     isExpired = false;
-    
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (timeLeft > 0) {
-        setState(() => timeLeft--);
-      } else {
-        setState(() {
-          isExpired = true;
-          _timer?.cancel();
-        });
-      }
-    });
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) {
+        if (timeLeft > 0) {
+          setState(() {
+            timeLeft--;
+          });
+        } else {
+          setState(() {
+            isExpired = true;
+          });
+
+          timer.cancel();
+        }
+      },
+    );
   }
 
   @override
@@ -97,235 +68,216 @@ class _QrCodeState extends State<QrCode> {
     super.dispose();
   }
 
-  bool get isWarning => timeLeft <= 30 && !isExpired;
-
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: primaryColor),
-              SizedBox(height: 20),
-              Text("Generating Secure Aid Token...", style: TextStyle(color: textSecondaryColor)),
-            ],
-          ),
-        ),
-      );
-    }
+    return BlocConsumer<TokenCubit, TokenState>(
+      listener: (context, state) {
+        if (state is TokenGenerated) {
+          manualToken = state.token["aid_token"];
 
-    if (errorMessage != null) {
-      return Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: textColor),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
+          sessionName =
+              state.token["session_name"] ??
+              "Distribution Center";
+
+          qrData = jsonEncode({
+            "token": manualToken,
+            "exp": maxTime.toString(),
+          });
+
+          startTimer();
+        }
+      },
+
+      builder: (context, state) {
+        if (state is TokenLoading) {
+          return Scaffold(
+            backgroundColor: backgroundColor,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            ),
+            body: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (state is TokenFailure) {
+          return Scaffold(
+            backgroundColor: backgroundColor,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  Text(
+                    state.message,
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      context
+                          .read<TokenCubit>()
+                          .requestToken();
+                    },
+                    child: const Text("Try Again"),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (state is! TokenGenerated) {
+          return const Scaffold(
+            body: SizedBox(),
+          );
+        }
+
+        final progress = timeLeft / maxTime;
+
+        final activeColor = isExpired
+            ? Colors.red
+            : (timeLeft <= 30
+                ? Colors.orange
+                : primaryColor);
+
+        return Scaffold(
+          backgroundColor: backgroundColor,
+
+          appBar: AppBar(
+            title: const Text(
+              "Digital Aid Token",
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+
+          body: SingleChildScrollView(
+            padding:
+                const EdgeInsets.all(20),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline_rounded, color: errorColor, size: 60),
-                const SizedBox(height: 20),
-                Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+
+                Text(
+                  sessionName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
                 const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _fetchRealToken,
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
-                  child: const Text("Try Again"),
-                )
+
+                CircularProgressIndicator(
+                  value: progress,
+                  color: activeColor,
+                ),
+
+                const SizedBox(height: 20),
+
+                QrImageView(
+                  data: qrData,
+                  size: 220,
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  isExpired
+                      ? "Expired"
+                      : "$timeLeft seconds remaining",
+                  style: TextStyle(
+                    color: activeColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                Card(
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+
+                        const Text(
+                          "Manual Token",
+                          style: TextStyle(
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        Text(
+                          showCode
+                              ? manualToken
+                              : "••••••••••••",
+                          style:
+                              const TextStyle(
+                            fontSize: 24,
+                            letterSpacing: 2,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+
+                        IconButton(
+                          onPressed: isExpired
+                              ? null
+                              : () {
+                                  setState(() {
+                                    showCode =
+                                        !showCode;
+                                  });
+                                },
+                          icon: Icon(
+                            showCode
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isExpired
+                        ? () {
+                            context
+                                .read<
+                                    TokenCubit>()
+                                .requestToken();
+                          }
+                        : null,
+                    child: Text(
+                      isExpired
+                          ? "Generate New Token"
+                          : "Token Active",
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-      );
-    }
-
-    double progress = timeLeft / maxTime;
-    Color activeColor = isExpired ? errorColor : (isWarning ? Colors.red : primaryColor);
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text("Digital Aid Token", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: textColor,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Text(sessionName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
-            const SizedBox(height: 20),
-            
-            // --- 1. THE QR VAULT AREA ---
-            Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 280,
-                    height: 280,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 8,
-                      backgroundColor: Colors.grey.withOpacity(0.1),
-                      valueColor: AlwaysStoppedAnimation<Color>(activeColor),
-                    ),
-                  ),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: activeColor.withOpacity(0.1),
-                          blurRadius: 40,
-                          spreadRadius: 2,
-                        )
-                      ],
-                    ),
-                    child: Opacity(
-                      opacity: isExpired ? 0.2 : 1.0,
-                      child: QrImageView(
-                        data: qrData,
-                        size: 200,
-                        foregroundColor: textColor,
-                      ),
-                    ),
-                  ),
-                  
-                  if (isExpired)
-                    const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.timer_off_rounded, size: 60, color: errorColor),
-                        SizedBox(height: 8),
-                        Text("EXPIRED", style: TextStyle(color: errorColor, fontWeight: FontWeight.bold))
-                      ],
-                    ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 15),
-            Text(
-              isExpired ? "Token has expired" : "Expires in $timeLeft seconds",
-              style: TextStyle(color: activeColor, fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-
-            const SizedBox(height: 35),
-
-            // --- 2. SECURE MANUAL CODE SECTION ---
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: isWarning ? Colors.red.withOpacity(0.3) : Colors.grey.shade200),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    "MANUAL COLLECTION CODE",
-                    style: TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: textSecondaryColor),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        isExpired ? "•••••••••••" : (_showCode ? manualToken : "•••••••••••"),
-                        style: TextStyle(
-                          fontSize: 24,
-                          letterSpacing: _showCode ? 2 : 4,
-                          fontWeight: FontWeight.w900,
-                          color: isExpired ? Colors.grey : textColor,
-                          fontFamily: 'Monospace',
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      IconButton(
-                        onPressed: isExpired ? null : () => setState(() => _showCode = !_showCode),
-                        icon: Icon(
-                          _showCode ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                          color: isExpired ? Colors.grey : primaryColor,
-                        ),
-                      )
-                    ],
-                  ),
-                  const Text(
-                    "Reveal only when asked by a distribution officer",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: textSecondaryColor),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            _buildInfoTile(
-              icon: isWarning ? Icons.warning_amber_rounded : Icons.security_rounded,
-              title: isExpired ? "Token Invalid" : (isWarning ? "Expiring Soon!" : "Secure Token"),
-              subtitle: isExpired ? "Please generate a new token." : "This code is unique to your account and session.",
-              color: activeColor,
-            ),
-
-            const SizedBox(height: 30),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isExpired ? () => _fetchRealToken() : null, // Re-fetches a fresh token from backend
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  isExpired ? "GENERATE NEW TOKEN" : "TOKEN ACTIVE",
-                  style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile({required IconData icon, required String title, required String subtitle, required Color color}) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
-              Text(subtitle, style: const TextStyle(color: textSecondaryColor, fontSize: 12)),
-            ],
-          ),
-        )
-      ],
+        );
+      },
     );
   }
 }

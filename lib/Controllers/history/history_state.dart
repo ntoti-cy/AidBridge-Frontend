@@ -12,18 +12,22 @@ class HistoryInitial extends HistoryState {}
 class HistoryLoading extends HistoryState {}
 
 class HistoryLoaded extends HistoryState {
-  final List<dynamic> history;
+  final List<Map<String, dynamic>> history;
+  final bool offline;
 
-  const HistoryLoaded(this.history);
+  const HistoryLoaded({
+    required this.history,
+    this.offline = false,
+  });
 
   @override
-  List<Object?> get props => [history];
+  List<Object?> get props => [history, offline];
 }
 
-class HistoryError extends HistoryState {
+class HistoryFailure extends HistoryState {
   final String message;
 
-  const HistoryError(this.message);
+  const HistoryFailure(this.message);
 
   @override
   List<Object?> get props => [message];

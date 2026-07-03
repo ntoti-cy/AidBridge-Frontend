@@ -1,187 +1,419 @@
 import 'package:aid_bridge/Configs/colors.dart';
+import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
+import 'package:aid_bridge/Controllers/officer/officer_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
-import 'package:aid_bridge/Views/screens/officer/qrscanner.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
-class OfficerDashboard extends StatelessWidget {
-  final String firstName;
-  final String secondName;
-  final String aidCenter;
-  final String token; // The JWT token to pass to the scanner
+class OfficerDashboard extends StatefulWidget {
+  const OfficerDashboard({super.key});
 
-  const OfficerDashboard({
-    super.key,
-    required this.firstName,
-    required this.secondName,
-    required this.aidCenter,
-    required this.token,
-  });
+  @override
+  State<OfficerDashboard> createState() => _OfficerDashboardState();
+}
+
+class _OfficerDashboardState extends State<OfficerDashboard> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<OfficerCubit>().loadDashboard();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -50,
-            right: -50,
-            child: CircleAvatar(
-              radius: 100,
-              backgroundColor: primaryColor.withOpacity(0.05),
-            ),
+
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          "Officer Dashboard",
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Get.toNamed(AppRoutes.settings);
+            },
+            icon: const Icon(Icons.settings_outlined, color: textColor),
           ),
-          
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 30),
-                  
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Officer Portal,",
-                            style: TextStyle(color: textSecondaryColor, fontSize: 16),
-                          ),
-                          Text(
-                            "$firstName $secondName",
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildProfileIcon(),
-                    ],
-                  ),
+        ],
+      ),
 
-                  const SizedBox(height: 30),
-
-                  // Center Assignment Banner
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: primaryColor.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on_rounded, color: primaryColor, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Assigned Distribution Center", 
-                                style: TextStyle(fontSize: 12, color: textSecondaryColor)),
-                              Text(aidCenter, 
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor)),
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // Hero Scanner Button
-                  InkWell(
-                    onTap: () => Get.to(() => QRScanner(token: token)),
-                    borderRadius: BorderRadius.circular(32),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [primaryColor, secondaryColor],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryColor.withOpacity(0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Column(
-                        children: [
-                          Icon(Icons.qr_code_scanner_rounded, size: 80, color: Colors.white),
-                          SizedBox(height: 20),
-                          Text(
-                            "SCAN AID TOKEN",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            "Tap to open camera viewfinder",
-                            style: TextStyle(color: Colors.white70, fontSize: 14),
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Get.toNamed(AppRoutes.beneficiaryList, arguments: {'token': token}),
-                      icon: const Icon(Icons.cloud_download_rounded),
-                      label: const Text("Offline Sync Menu"),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        foregroundColor: primaryColor,
-                        side: const BorderSide(color: primaryColor, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 40),
-
-                ],
+      body: BlocConsumer<OfficerCubit, OfficerState>(
+        listener: (context, state) {
+          if (state is OfficerFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: errorColor,
+                content: Text(state.message),
               ),
+            );
+          }
+
+          if (state is AidDistributed) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: successColor,
+                content: Text("Aid distributed successfully."),
+              ),
+            );
+          }
+        },
+
+        builder: (context, state) {
+          if (state is OfficerLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
+          }
+
+          if (state is OfficerFailure) {
+            return Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  context.read<OfficerCubit>().loadDashboard();
+                },
+                child: const Text("Retry"),
+              ),
+            );
+          }
+
+          if (state is! OfficerLoaded) {
+            return const SizedBox();
+          }
+
+          final officer = state.officer;
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<OfficerCubit>().loadDashboard();
+            },
+
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+
+              children: [
+                _welcomeCard(officer),
+
+                const SizedBox(height: 25),
+
+                const Text(
+                  "Today's Statistics",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statCard(
+                        "Served",
+                        state.servedToday.toString(),
+                        Icons.people,
+                        Colors.green,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: _statCard(
+                        "Remaining",
+                        state.remainingAid.toString(),
+                        Icons.inventory,
+                        Colors.blue,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: _statCard(
+                        "Verified",
+                        state.servedToday.toString(),
+                        Icons.verified,
+                        primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 28),
+
+                _quickActions(),
+
+                const SizedBox(height: 28),
+
+                _recentActivity(state),
+
+                const SizedBox(height: 28),
+
+                _syncCard(state),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  //====================================================
+  // WELCOME CARD
+  //====================================================
+
+  Widget _welcomeCard(Map<String, dynamic> officer) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+
+      decoration: BoxDecoration(
+        color: cardColor,
+
+        borderRadius: BorderRadius.circular(20),
+      ),
+
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: primaryColor.withOpacity(.1),
+            child: const Icon(Icons.admin_panel_settings, color: primaryColor),
+          ),
+
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Welcome Officer",
+                  style: TextStyle(color: textSecondaryColor),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  "Good Morning,\n${officer["first_name"]}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+  //====================================================
+  // QUICK ACTIONS
+  //====================================================
 
-  Widget _buildProfileIcon() {
+  Widget _quickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Quick Actions",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 16),
+
+        Row(
+          children: [
+            Expanded(
+              child: _infoCard(
+                icon: Icons.qr_code_scanner,
+                title: "Scan QR",
+                color: primaryColor,
+                onTap: () => Get.toNamed(AppRoutes.qrScanner),
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: _infoCard(
+                icon: Icons.groups_outlined,
+                title: "Beneficiaries",
+                color: Colors.blue,
+                onTap: () => Get.toNamed(AppRoutes.beneficiaryList),
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: _infoCard(
+                icon: Icons.settings,
+                title: "Settings",
+                color: Colors.orange,
+                onTap: () => Get.toNamed(AppRoutes.settings),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  //////////////////////////////////////////////////////
+  // RECENT ACTIVITY
+  //////////////////////////////////////////////////////
+
+  Widget _recentActivity(OfficerLoaded state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Recent Activity",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 16),
+
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+          ),
+
+          child: state.recentActivity.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: Text("No recent activity")),
+                )
+              : Column(
+                  children: state.recentActivity
+                      .map(
+                        (activity) => ListTile(
+                          leading: const Icon(
+                            Icons.history,
+                            color: primaryColor,
+                          ),
+
+                          title: Text(activity["action"] ?? ""),
+
+                          subtitle: Text(activity["description"] ?? ""),
+
+                          trailing: Text(activity["time"] ?? ""),
+                        ),
+                      )
+                      .toList(),
+                ),
+        ),
+      ],
+    );
+  }
+
+  //////////////////////////////////////////////////////
+  // SYNC CARD
+  //////////////////////////////////////////////////////
+
+  Widget _syncCard(OfficerLoaded state) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: primaryColor.withOpacity(0.2), width: 2),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: const CircleAvatar(
-        radius: 22,
-        backgroundColor: Colors.white,
-        child: Icon(Icons.admin_panel_settings_rounded, color: primaryColor),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_done, color: Colors.green, size: 40),
+
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Synchronization",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+
+                Text("Pending: ${state.pendingSync}"),
+
+                Text("Last Sync: ${state.lastSync}"),
+              ],
+            ),
+          ),
+
+          ElevatedButton(
+            onPressed: () {
+              context.read<OfficerCubit>().synchronize();
+            },
+            child: const Text("Sync"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  //////////////////////////////////////////////////////
+  // STAT CARD
+  //////////////////////////////////////////////////////
+
+  Widget _statCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 30),
+
+          const SizedBox(height: 10),
+
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+
+          Text(title),
+        ],
+      ),
+    );
+  }
+
+  //////////////////////////////////////////////////////
+  // ACTION CARD
+  //////////////////////////////////////////////////////
+
+  Widget _infoCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        height: 110,
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 34),
+
+            const SizedBox(height: 10),
+
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
