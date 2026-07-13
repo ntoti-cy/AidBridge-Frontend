@@ -8,10 +8,7 @@ class CrudCubit extends Cubit<AuthState> {
 
   CrudCubit(this.authService) : super(AuthInitial());
 
-  // =====================================================
-  // COMPLETE PROFILE
-  // =====================================================
-
+  // Complete Profile
   Future<void> completeProfile(Map<String, dynamic> data) async {
     emit(AuthLoading());
 
@@ -42,10 +39,7 @@ class CrudCubit extends Cubit<AuthState> {
     }
   }
 
-  // =====================================================
-  // CHANGE PASSWORD
-  // =====================================================
-
+  // Change Password
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,

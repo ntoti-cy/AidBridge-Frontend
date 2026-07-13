@@ -7,14 +7,13 @@ abstract class BeneficiaryState extends Equatable {
   List<Object?> get props => [];
 }
 
-
-/// Initial State
+// Initial State
 class BeneficiaryInitial extends BeneficiaryState {}
 
-/// Loading profile
+// Loading profile
 class BeneficiaryLoading extends BeneficiaryState {}
 
-/// Profile successfully loaded
+// Profile successfully loaded
 class BeneficiaryLoaded extends BeneficiaryState {
   final Map<String, dynamic> profile;
 
@@ -24,10 +23,10 @@ class BeneficiaryLoaded extends BeneficiaryState {
   List<Object?> get props => [profile];
 }
 
-/// syncing state 
+// syncing state
 class BeneficiarySyncing extends BeneficiaryState {}
 
-/// Error state
+// Error state
 class BeneficiaryFailure extends BeneficiaryState {
   final String message;
 

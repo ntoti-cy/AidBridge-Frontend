@@ -60,107 +60,67 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // LOGIN
+  Future<void> login({required String email, required String password}) async {
+    emit(AuthLoading());
 
-Future<void> login({
-  required String email,
-  required String password,
-}) async {
-  emit(AuthLoading());
+    final connectivity = await Connectivity().checkConnectivity();
 
-  final connectivity =
-      await Connectivity().checkConnectivity();
+    final bool online = !connectivity.contains(ConnectivityResult.none);
 
-  final bool online =
-      !connectivity.contains(ConnectivityResult.none);
-
-  // ===========================
-  // OFFLINE LOGIN
-  // ===========================
-
-  if (!online) {
-    final localUser =
-        await _localRepo.getUserByEmailAndPassword(
-      email,
-      password,
-    );
-
-    if (localUser != null) {
-      emit(
-        AuthSuccess(
-          "OFFLINE_TOKEN",
-          data: localUser,
-        ),
+    // OFFLINE LOGIN
+    if (!online) {
+      final localUser = await _localRepo.getUserByEmailAndPassword(
+        email,
+        password,
       );
-    } else {
-      emit(
-        const AuthFailure(
-          generalError:
-              "No internet connection and no offline account found.",
-        ),
-      );
+
+      if (localUser != null) {
+        emit(AuthSuccess("OFFLINE_TOKEN", data: localUser));
+      } else {
+        emit(
+          const AuthFailure(
+            generalError:
+                "No internet connection and no offline account found.",
+          ),
+        );
+      }
+
+      return;
     }
 
-    return;
-  }
-
-  // ===========================
-  // ONLINE LOGIN
-  // ===========================
-
-  try {
-    final token = await authService.login(
-      email: email,
-      password: password,
-    );
-
-    final userData =
-        await authService.getUserProfile();
-
+    // ONLINE LOGIN
     try {
-      await _localRepo.insertUser(
-        firstName:
-            userData["first_name"]?.toString() ?? "",
-        secondName:
-            userData["second_name"]?.toString() ?? "",
-        nationalId:
-            userData["national_id"]?.toString() ?? "",
-        contact:
-            userData["contact"]?.toString() ?? "",
-        email: email,
-        password: password,
-        role:
-            userData["role"]?.toString() ??
-                "beneficiary",
-        requiresPasswordChange:
-            _parseBool(
-              userData[
-                  "requires_password_change"],
-            ),
-        isProfileComplete:
-            _parseBool(
-              userData[
-                  "is_profile_complete"],
-              defaultVal: true,
-            ),
-      );
-    } catch (_) {}
+      final token = await authService.login(email: email, password: password);
 
-    emit(
-      AuthSuccess(
-        token,
-        data: userData,
-      ),
-    );
-  } on DioException catch (e) {
-    _handleDioError(e);
-  } catch (e) {
-    emit(
-      AuthFailure(
-        generalError: e.toString(),
-      ),
-    );
+      final userData = await authService.getUserProfile();
+
+      try {
+        await _localRepo.insertUser(
+          firstName: userData["first_name"]?.toString() ?? "",
+          secondName: userData["second_name"]?.toString() ?? "",
+          nationalId: userData["national_id"]?.toString() ?? "",
+          contact: userData["contact"]?.toString() ?? "",
+          email: email,
+          password: password,
+          role: userData["role"]?.toString() ?? "beneficiary",
+          requiresPasswordChange: _parseBool(
+            userData["requires_password_change"],
+          ),
+          isProfileComplete: _parseBool(
+            userData["is_profile_complete"],
+            defaultVal: true,
+          ),
+        );
+      } catch (_) {}
+
+      emit(AuthSuccess(token, data: userData));
+    } on DioException catch (e) {
+      _handleDioError(e);
+    } catch (e) {
+      emit(AuthFailure(generalError: e.toString()));
+    }
   }
-}
+
   //CLEAR FIELD ERRORS
   void clearFieldError(String field) {
     if (state is AuthFailure) {
@@ -182,68 +142,51 @@ Future<void> login({
   //HELPERS
 
   bool _parseBool(dynamic value, {bool defaultVal = false}) {
-  if (value == null) return defaultVal;
+    if (value == null) return defaultVal;
 
-  if (value is bool) return value;
+    if (value is bool) return value;
 
-  if (value is int) return value == 1;
+    if (value is int) return value == 1;
 
-  if (value is String) {
-    return value.toLowerCase() == "true" || value == "1";
+    if (value is String) {
+      return value.toLowerCase() == "true" || value == "1";
+    }
+
+    return defaultVal;
   }
-
-  return defaultVal;
-}
 
   void _handleDioError(DioException e) {
-  final data = e.response?.data;
+    final data = e.response?.data;
 
-  if (data is Map<String, dynamic>) {
-    // Validation errors
-    if (data["error"] is Map<String, dynamic>) {
-      final raw =
-          data["error"] as Map<String, dynamic>;
+    if (data is Map<String, dynamic>) {
+      // Validation errors
+      if (data["error"] is Map<String, dynamic>) {
+        final raw = data["error"] as Map<String, dynamic>;
 
-      final errors = raw.map((key, value) {
-        if (value is List) {
-          return MapEntry(
-            key,
-            value.map((e) => e.toString()).toList(),
-          );
-        }
+        final errors = raw.map((key, value) {
+          if (value is List) {
+            return MapEntry(key, value.map((e) => e.toString()).toList());
+          }
 
-        return MapEntry(key, [value.toString()]);
-      });
+          return MapEntry(key, [value.toString()]);
+        });
 
-      emit(AuthFailure(fieldErrors: errors));
-      return;
+        emit(AuthFailure(fieldErrors: errors));
+        return;
+      }
+
+      // Backend message
+      if (data["error"] is String) {
+        emit(AuthFailure(generalError: data["error"]));
+        return;
+      }
+
+      if (data["message"] is String) {
+        emit(AuthFailure(generalError: data["message"]));
+        return;
+      }
     }
 
-    // Backend message
-    if (data["error"] is String) {
-      emit(
-        AuthFailure(
-          generalError: data["error"],
-        ),
-      );
-      return;
-    }
-
-    if (data["message"] is String) {
-      emit(
-        AuthFailure(
-          generalError: data["message"],
-        ),
-      );
-      return;
-    }
+    emit(AuthFailure(generalError: "Something went wrong. Please try again."));
   }
-
-  emit(
-    AuthFailure(
-      generalError:
-          "Something went wrong. Please try again.",
-    ),
-  );
-}
 }

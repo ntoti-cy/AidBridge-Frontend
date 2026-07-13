@@ -7,9 +7,7 @@ class DioClient {
   static final Dio dio = Dio(
     BaseOptions(
       baseUrl: "https://aidbridge-backend-38ei.onrender.com",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: {"Content-Type": "application/json"},
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
     ),
@@ -26,9 +24,7 @@ class DioClient {
 
     dio.interceptors.add(
       InterceptorsWrapper(
-        // ==========================
         // Attach Access Token
-        // ==========================
         onRequest: (options, handler) {
           final token = authService.AccessToken;
 
@@ -39,9 +35,7 @@ class DioClient {
           handler.next(options);
         },
 
-        // ==========================
         // Handle 401
-        // ==========================
         onError: (DioException err, handler) async {
           final request = err.requestOptions;
 
@@ -68,8 +62,7 @@ class DioClient {
 
             authService.setAccessToken(newAccessToken);
 
-            request.headers["Authorization"] =
-                "Bearer $newAccessToken";
+            request.headers["Authorization"] = "Bearer $newAccessToken";
 
             final response = await dio.fetch(request);
 

@@ -10,10 +10,10 @@ abstract class OfficerState extends Equatable {
 /// Initial
 class OfficerInitial extends OfficerState {}
 
-/// Loading
+/// Dashboard Loading
 class OfficerLoading extends OfficerState {}
 
-/// Dashboard Loaded
+/// Officer Dashboard Loaded
 class OfficerLoaded extends OfficerState {
   final Map<String, dynamic> officer;
 
@@ -38,16 +38,19 @@ class OfficerLoaded extends OfficerState {
 
   @override
   List<Object?> get props => [
-        officer,
-        servedToday,
-        remainingAid,
-        pendingSync,
-        lastSync,
-        recentActivity,
-      ];
+    officer,
+    servedToday,
+    remainingAid,
+    pendingSync,
+    lastSync,
+    recentActivity,
+  ];
 }
 
-/// Token verified
+/// Token Verification
+class TokenVerificationLoading extends OfficerState {}
+
+/// Beneficiary verified successfully
 class TokenVerified extends OfficerState {
   final Map<String, dynamic> beneficiary;
 
@@ -57,7 +60,17 @@ class TokenVerified extends OfficerState {
   List<Object?> get props => [beneficiary];
 }
 
-/// Beneficiaries downloaded
+/// Aid Distribution
+class AidDistributionLoading extends OfficerState {
+  const AidDistributionLoading();
+}
+
+/// Aid successfully distributed
+class AidDistributed extends OfficerState {
+  const AidDistributed();
+}
+
+/// Beneficiary Download
 class BeneficiariesDownloaded extends OfficerState {
   final int count;
 
@@ -67,17 +80,7 @@ class BeneficiariesDownloaded extends OfficerState {
   List<Object?> get props => [count];
 }
 
-/// Aid Distribution Loading
-class AidDistributionLoading extends OfficerState {
-  const AidDistributionLoading();
-}
-
-/// Aid Distributed
-class AidDistributed extends OfficerState {
-  const AidDistributed();
-}
-
-/// Offline Sync Success
+/// Offline Synchronization
 class OfficerSyncSuccess extends OfficerState {
   final int synced;
 

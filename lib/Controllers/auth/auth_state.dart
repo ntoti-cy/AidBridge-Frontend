@@ -7,46 +7,26 @@ abstract class AuthState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// ===============================
-/// INITIAL
-/// ===============================
-
+// Initial
 class AuthInitial extends AuthState {}
 
-/// ===============================
-/// LOADING
-/// ===============================
-
+// Loading
 class AuthLoading extends AuthState {}
 
 class AuthSyncing extends AuthState {}
 
-
-
-/// ===============================
-/// LOGIN SUCCESS
-/// ===============================
-
+// Login Success
 class AuthSuccess extends AuthState {
   final String token;
   final Map<String, dynamic>? data;
 
-  const AuthSuccess(
-    this.token, {
-    this.data = const {},
-  });
+  const AuthSuccess(this.token, {this.data = const {}});
 
   @override
-  List<Object?> get props => [
-        token,
-        data,
-      ];
+  List<Object?> get props => [token, data];
 }
 
-/// ===============================
-/// REGISTER SUCCESS
-/// ===============================
-
+// Register Success
 class AuthRegistered extends AuthState {
   final Map<String, dynamic> data;
 
@@ -56,10 +36,7 @@ class AuthRegistered extends AuthState {
   List<Object?> get props => [data];
 }
 
-/// ===============================
-/// PROFILE COMPLETION
-/// ===============================
-
+// Profile Completion
 class ProfileCompleted extends AuthState {
   const ProfileCompleted();
 }
@@ -68,30 +45,18 @@ class ProfileSavedOffline extends AuthState {
   const ProfileSavedOffline();
 }
 
-/// ===============================
-/// PASSWORD
-/// ===============================
-
+// Password
 class PasswordChanged extends AuthState {
   const PasswordChanged();
 }
 
-/// ===============================
-/// FAILURE
-/// ===============================
-
+// Failure
 class AuthFailure extends AuthState {
   final Map<String, List<String>> fieldErrors;
   final String? generalError;
 
-  const AuthFailure({
-    this.fieldErrors = const {},
-    this.generalError,
-  });
+  const AuthFailure({this.fieldErrors = const {}, this.generalError});
 
   @override
-  List<Object?> get props => [
-        fieldErrors,
-        generalError,
-      ];
+  List<Object?> get props => [fieldErrors, generalError];
 }

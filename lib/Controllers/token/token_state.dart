@@ -7,13 +7,14 @@ abstract class TokenState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial
+// Initial state
 class TokenInitial extends TokenState {}
 
-/// Loading
-class TokenLoading extends TokenState {}
+// Generating token
+class TokenGenerating extends TokenState {}
 
-/// Token generated successfully
+// One-time event
+// Used only to open QR screen
 class TokenGenerated extends TokenState {
   final Map<String, dynamic> token;
 
@@ -23,17 +24,7 @@ class TokenGenerated extends TokenState {
   List<Object?> get props => [token];
 }
 
-/// History loaded
-class TokenHistoryLoaded extends TokenState {
-  final List<dynamic> history;
-
-  const TokenHistoryLoaded(this.history);
-
-  @override
-  List<Object?> get props => [history];
-}
-
-/// Error
+// Error
 class TokenFailure extends TokenState {
   final String message;
 
@@ -41,4 +32,18 @@ class TokenFailure extends TokenState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class TokenLoading extends TokenState {}
+
+class TokenDashboardLoaded extends TokenState {
+  final Map<String, dynamic> status;
+  final List<dynamic> history;
+
+  const TokenDashboardLoaded({required this.status, required this.history});
+
+  int get historyCount => history.length;
+
+  @override
+  List<Object?> get props => [status, history];
 }

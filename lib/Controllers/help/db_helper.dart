@@ -21,8 +21,8 @@ class DBHelper {
     return await openDatabase(
       path,
       version: 3,
-      onCreate:_onCreate,
-      onUpgrade:_onUpgrade,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -37,7 +37,7 @@ class DBHelper {
           )
         ''');
 
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE tokens(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
            aid_token TEXT UNIQUE,
@@ -49,8 +49,7 @@ class DBHelper {
           )
         ''');
 
-
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT,
@@ -66,7 +65,7 @@ class DBHelper {
           )
         ''');
 
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE codes(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE,
@@ -74,7 +73,7 @@ class DBHelper {
           )
         ''');
 
-        await db.execute('''
+    await db.execute('''
   CREATE TABLE history(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     aid_token TEXT UNIQUE,
@@ -83,13 +82,11 @@ class DBHelper {
     center_name TEXT
   )
 ''');
-      }
+  }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-
-  if (oldVersion < 3) {
-
-    await db.execute('''
+    if (oldVersion < 3) {
+      await db.execute('''
       CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         first_name TEXT,
@@ -105,7 +102,7 @@ class DBHelper {
       )
     ''');
 
-    await db.execute('''
+      await db.execute('''
       CREATE TABLE IF NOT EXISTS codes(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         code TEXT UNIQUE,
@@ -113,7 +110,7 @@ class DBHelper {
       )
     ''');
 
-    await db.execute('''
+      await db.execute('''
   CREATE TABLE IF NOT EXISTS history(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     aid_token TEXT UNIQUE,
@@ -123,8 +120,7 @@ class DBHelper {
   )
 ''');
 
-
-await db.execute('''
+      await db.execute('''
 CREATE TABLE pending_profile(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   total_members INTEGER,
@@ -135,22 +131,17 @@ CREATE TABLE pending_profile(
   synced INTEGER DEFAULT 0
 )
 ''');
+    }
 
-  }
-
-      Future<void> addColumn(String sql) async {
+    Future<void> addColumn(String sql) async {
       try {
         await db.execute(sql);
       } catch (_) {}
     }
 
-    await addColumn(
-      "ALTER TABLE users ADD COLUMN password_hash TEXT",
-    );
+    await addColumn("ALTER TABLE users ADD COLUMN password_hash TEXT");
 
-    await addColumn(
-      "ALTER TABLE users ADD COLUMN role TEXT",
-    );
+    await addColumn("ALTER TABLE users ADD COLUMN role TEXT");
 
     await addColumn(
       "ALTER TABLE users ADD COLUMN requires_password_change INTEGER DEFAULT 0",
@@ -160,29 +151,17 @@ CREATE TABLE pending_profile(
       "ALTER TABLE users ADD COLUMN is_profile_complete INTEGER DEFAULT 1",
     );
 
-    await addColumn(
-      "ALTER TABLE users ADD COLUMN synced INTEGER DEFAULT 0",
-    );
+    await addColumn("ALTER TABLE users ADD COLUMN synced INTEGER DEFAULT 0");
 
-    await addColumn(
-  "ALTER TABLE tokens ADD COLUMN session TEXT",
-);
+    await addColumn("ALTER TABLE tokens ADD COLUMN session TEXT");
 
-await addColumn(
-  "ALTER TABLE tokens ADD COLUMN status TEXT",
-);
+    await addColumn("ALTER TABLE tokens ADD COLUMN status TEXT");
 
-await addColumn(
-  "ALTER TABLE tokens ADD COLUMN issued_at TEXT",
-);
+    await addColumn("ALTER TABLE tokens ADD COLUMN issued_at TEXT");
 
-await addColumn(
-  "ALTER TABLE tokens ADD COLUMN expires_at TEXT",
-);
+    await addColumn("ALTER TABLE tokens ADD COLUMN expires_at TEXT");
   }
 
-
-    
   // Insert a single beneficiary
   Future<void> insertBeneficiary(Beneficiary b) async {
     final dbClient = await database;
@@ -243,22 +222,21 @@ await addColumn(
   }
 
   // Offline token status check
- Future<String> getTokenStatus(String tokenValue) async {
-  final dbClient = await database;
+  Future<String> getTokenStatus(String tokenValue) async {
+    final dbClient = await database;
 
-  // Query beneficiary by aid_token
-  final result = await dbClient.query(
-    'beneficiaries',
-    where: 'aid_token = ?',
-    whereArgs: [tokenValue],
-  );
+    // Query beneficiary by aid_token
+    final result = await dbClient.query(
+      'beneficiaries',
+      where: 'aid_token = ?',
+      whereArgs: [tokenValue],
+    );
 
-  if (result.isEmpty) return "Invalid";
+    if (result.isEmpty) return "Invalid";
     return result.first['token_status'] as String? ?? "Invalid";
-}
+  }
 
-
-// Mark a beneficiary token as used in the beneficiaries table
+  // Mark a beneficiary token as used in the beneficiaries table
   Future<void> markBeneficiaryTokenUsed(String tokenValue) async {
     final dbClient = await database;
     await dbClient.update(
@@ -271,19 +249,19 @@ await addColumn(
 
   //User (offline login) operations
   Future<void> upsertUser(Map<String, dynamic> userData) async {
-  final dbClient = await database;
+    final dbClient = await database;
 
-  try {
-    await dbClient.insert(
-      'users',
-      userData,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  } catch (e) {
-    print("SQLite user insert failed: $e");
-    rethrow;
+    try {
+      await dbClient.insert(
+        'users',
+        userData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print("SQLite user insert failed: $e");
+      rethrow;
+    }
   }
-}
 
   Future<Map<String, dynamic>?> getUserByEmail(String email) async {
     final dbClient = await database;
@@ -295,57 +273,37 @@ await addColumn(
     return result.isNotEmpty ? result.first : null;
   }
 
-  // =====================================================
-// GET LAST CACHED USER
-// =====================================================
+  // Get Last Cached User
+  Future<Map<String, dynamic>?> getLastUser() async {
+    final dbClient = await database;
 
-Future<Map<String, dynamic>?> getLastUser() async {
-  final dbClient = await database;
+    final result = await dbClient.query('users', orderBy: 'id DESC', limit: 1);
 
-  final result = await dbClient.query(
-    'users',
-    orderBy: 'id DESC',
-    limit: 1,
-  );
+    if (result.isEmpty) {
+      return null;
+    }
 
-  if (result.isEmpty) {
-    return null;
+    return result.first;
   }
 
-  return result.first;
-}
+  // Update User
+  Future<void> updateUser(String email, Map<String, dynamic> values) async {
+    final dbClient = await database;
 
-// =====================================================
-// UPDATE USER
-// =====================================================
+    await dbClient.update(
+      'users',
+      values,
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+  }
 
-Future<void> updateUser(
-  String email,
-  Map<String, dynamic> values,
-) async {
-  final dbClient = await database;
+  // Delete User
+  Future<void> deleteUser(String email) async {
+    final dbClient = await database;
 
-  await dbClient.update(
-    'users',
-    values,
-    where: 'email = ?',
-    whereArgs: [email],
-  );
-}
-
-// =====================================================
-// DELETE USER
-// =====================================================
-
-Future<void> deleteUser(String email) async {
-  final dbClient = await database;
-
-  await dbClient.delete(
-    'users',
-    where: 'email = ?',
-    whereArgs: [email],
-  );
-}
+    await dbClient.delete('users', where: 'email = ?', whereArgs: [email]);
+  }
 
   Future<void> markUserSynced(String email) async {
     final dbClient = await database;
@@ -358,14 +316,12 @@ Future<void> deleteUser(String email) async {
   }
 
   //Code operations
-
   Future<void> insertCode(String code) async {
     final dbClient = await database;
-    await dbClient.insert(
-      'codes',
-      {'code': code, 'used': 0},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await dbClient.insert('codes', {
+      'code': code,
+      'used': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<Map<String, dynamic>?> getCode(String code) async {
@@ -387,118 +343,83 @@ Future<void> deleteUser(String email) async {
       whereArgs: [code],
     );
   }
-  // =====================================================
-// SAVE TOKEN HISTORY
-// =====================================================
 
-Future<void> saveHistory(
-  List<Map<String, dynamic>> history,
-) async {
-  final dbClient = await database;
+  // Save Token History
+  Future<void> saveHistory(List<Map<String, dynamic>> history) async {
+    final dbClient = await database;
 
-  await dbClient.delete("history");
+    await dbClient.delete("history");
 
-  final batch = dbClient.batch();
+    final batch = dbClient.batch();
 
-  for (final item in history) {
-    batch.insert(
-      "history",
-      {
+    for (final item in history) {
+      batch.insert("history", {
         "aid_token": item["aid_token"],
         "token_status": item["token_status"],
         "token_issued_at": item["token_issued_at"],
         "center_name":
-            item["center_name"] ??
-            item["center"] ??
-            "Distribution Center",
-      },
-      conflictAlgorithm:
-          ConflictAlgorithm.replace,
-    );
+            item["center_name"] ?? item["center"] ?? "Distribution Center",
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await batch.commit(noResult: true);
   }
 
-  await batch.commit(noResult: true);
-}
+  // Get Token History
+  Future<List<Map<String, dynamic>>> getHistory() async {
+    final dbClient = await database;
 
-// =====================================================
-// GET TOKEN HISTORY
-// =====================================================
+    final result = await dbClient.query("history", orderBy: "id DESC");
 
-Future<List<Map<String, dynamic>>> getHistory() async {
-  final dbClient = await database;
+    return result;
+  }
 
-  final result = await dbClient.query(
-    "history",
-    orderBy: "id DESC",
-  );
+  Future<void> savePendingProfile(Map<String, dynamic> profile) async {
+    final dbClient = await database;
 
-  return result;
-}
+    // Only keep one pending profile
+    await dbClient.delete("pending_profile");
 
-Future<void> savePendingProfile(
-    Map<String, dynamic> profile,
-) async {
-  final dbClient = await database;
-
-  // Only keep one pending profile
-  await dbClient.delete("pending_profile");
-
-  await dbClient.insert(
-    "pending_profile",
-    {
+    await dbClient.insert("pending_profile", {
       "total_members": profile["total_members"],
       "dependents_count": profile["dependents_count"],
       "income_level": profile["income_level"],
-      "disability_present":
-          profile["disability_present"] == true ? 1 : 0,
+      "disability_present": profile["disability_present"] == true ? 1 : 0,
       "center_id": profile["center_id"],
       "synced": 0,
-    },
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
-}
-//Getting Pending Profile
-Future<Map<String, dynamic>?> getPendingProfile() async {
-  final dbClient = await database;
-
-  final result = await dbClient.query(
-    "pending_profile",
-    limit: 1,
-  );
-
-  if (result.isEmpty) {
-    return null;
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  return result.first;
+  //Getting Pending Profile
+  Future<Map<String, dynamic>?> getPendingProfile() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query("pending_profile", limit: 1);
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result.first;
+  }
+
+  Future<void> deletePendingProfile() async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_profile");
+  }
+
+  Future<bool> hasPendingProfile() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query("pending_profile", limit: 1);
+
+    return result.isNotEmpty;
+  }
+
+  Future<void> markPendingProfileSynced() async {
+    final dbClient = await database;
+
+    await dbClient.update("pending_profile", {"synced": 1});
+  }
 }
-
-Future<void> deletePendingProfile() async {
-  final dbClient = await database;
-
-  await dbClient.delete("pending_profile");
-}
-
-Future<bool> hasPendingProfile() async {
-  final dbClient = await database;
-
-  final result = await dbClient.query(
-    "pending_profile",
-    limit: 1,
-  );
-
-  return result.isNotEmpty;
-}
-Future<void> markPendingProfileSynced() async {
-  final dbClient = await database;
-
-  await dbClient.update(
-    "pending_profile",
-    {
-      "synced": 1,
-    },
-  );
-}
-}
-  
-

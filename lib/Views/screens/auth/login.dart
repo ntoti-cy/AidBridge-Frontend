@@ -1,3 +1,4 @@
+import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
@@ -23,251 +24,260 @@ class Login extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: primaryColor.withOpacity(0.10),
-      // appBar: AppBar(centerTitle: true, title: const Text("LOGIN")),
-      body: BlocConsumer<AuthCubit, AuthState>(
-        listener: (context, state) {
-          if (state is AuthSuccess) {
-            if (state.token == "OFFLINE_TOKEN") {
-              Get.snackbar(
-                "Offline Mode",
-                "Logged in offline",
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
-            }
-            final data = state.data ?? {};
+      body: AppBackground(
+        showDecorations: true,
 
-            final role = data['role'] ?? 'beneficiary';
-
-            final requiresPasswordChange = _parseBool(
-              data['requires_password_change'],
-            );
-
-            final isProfileComplete = _parseBool(
-              data['is_profile_complete'],
-              defaultVal: true,
-            );
-
-            // Aid workers only
-            if (role == "aid_worker") {
-              if (requiresPasswordChange) {
-                Get.offAllNamed(AppRoutes.changePassword);
-              } else {
-                Get.offAllNamed(
-                  AppRoutes.officerDashboard,
-                  arguments: {
-                    'firstName': state.data?['first_name'] ?? '',
-                    'secondName': state.data?['second_name'] ?? '',
-                    'aidCenter': state.data?['assigned_center_name'] ?? '',
-                    'token': state.token,
-                  },
+        child: BlocConsumer<AuthCubit, AuthState>(
+          listener: (context, state) {
+            if (state is AuthSuccess) {
+              if (state.token == "OFFLINE_TOKEN") {
+                Get.snackbar(
+                  "Offline Mode",
+                  "Logged in offline",
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
                 );
               }
+              final data = state.data ?? {};
 
-              return;
-            }
+              final role = data['role'] ?? 'beneficiary';
 
-            // Beneficiary only
-            if (!isProfileComplete) {
-              Get.offAllNamed(
-                AppRoutes.completeProfile,
-                arguments: data,);
-
-              return;
-            }
-
-            Get.offAllNamed(
-              AppRoutes.beneficiaryDashboard,
-              arguments: {
-                'firstName': state.data?['first_name'] ?? '',
-                'secondName': state.data?['second_name'] ?? '',
-                'token': state.token,
-              },
-            );
-
-            return;
-          }
-
-          if (state is AuthFailure) {
-            if (state.generalError != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.generalError!),
-                  backgroundColor: Colors.red,
-                ),
+              final requiresPasswordChange = _parseBool(
+                data['requires_password_change'],
               );
+
+              final isProfileComplete = _parseBool(
+                data['is_profile_complete'],
+                defaultVal: true,
+              );
+
+              // Aid workers only
+              if (role == "aid_worker") {
+                if (requiresPasswordChange) {
+                  Get.offAllNamed(AppRoutes.changePassword);
+                } else {
+                  Get.offAllNamed(
+                    AppRoutes.officerDashboard,
+                    arguments: {
+                      'firstName': state.data?['first_name'] ?? '',
+                      'secondName': state.data?['second_name'] ?? '',
+                      'aidCenter': state.data?['assigned_center_name'] ?? '',
+                      'token': state.token,
+                    },
+                  );
+                }
+
+                return;
+              }
+
+              // Beneficiary only
+              if (!isProfileComplete) {
+                Get.offAllNamed(AppRoutes.completeProfile, arguments: data);
+
+                return;
+              }
+
+              Get.offAllNamed(
+                AppRoutes.beneficiaryDashboard,
+                arguments: {
+                  'firstName': state.data?['first_name'] ?? '',
+                  'secondName': state.data?['second_name'] ?? '',
+                  'token': state.token,
+                },
+              );
+
+              return;
             }
-          }
-        },
-        builder: (context, state) {
-          Map<String, List<String>> errors = {};
 
-          if (state is AuthFailure) {
-            errors = state.fieldErrors;
-          }
-
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 50),
-
-                ClipOval(
-                  child: Image.asset(
-                    'lib/Assets/images/aidbridge_logo.png',
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
+            if (state is AuthFailure) {
+              if (state.generalError != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.generalError!),
+                    backgroundColor: Colors.red,
                   ),
-                ),
+                );
+              }
+            }
+          },
+          builder: (context, state) {
+            Map<String, List<String>> errors = {};
 
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Center(
-                    child: Container(
-                      width: 300,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black,
-                            blurRadius: 7,
-                            offset: Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 10),
+            if (state is AuthFailure) {
+              errors = state.fieldErrors;
+            }
 
-                          const Text(
-                            "Welcome Back",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 50),
+
+                  ClipOval(
+                    child: Image.asset(
+                      "lib/Assets/images/aidbridge_logo.png",
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Center(
+                      child: Container(
+                        width: 300,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 7,
+                              offset: const Offset(0, 8),
                             ),
-                          ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 10),
 
-                          const SizedBox(height: 5),
-
-                          const Text(
-                            "Sign in to continue",
-                            style: TextStyle(fontSize: 14, color: primaryColor),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          TextField(
-                            controller: emailController,
-                            decoration: InputDecoration(
-                              labelText: "Email Address",
-                              prefixIcon: const Icon(Icons.email_outlined),
-                              errorText: errors["email"]?.first,
-                            ),
-                            onChanged: (_) {
-                              context.read<AuthCubit>().clearFieldError(
-                                "email",
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 15),
-
-                          TextField(
-                            controller: passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: "Password",
-                              prefixIcon: const Icon(Icons.password),
-                              errorText: errors["password"]?.first,
-                            ),
-                            onChanged: (_) {
-                              context.read<AuthCubit>().clearFieldError(
-                                "password",
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 25),
-                          //Syncing state
-                          if (state is AuthSyncing)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 10.0,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  CircularProgressIndicator(
-                                    color: successColor,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text("Syncing offline data..."),
-                                ],
+                            const Text(
+                              "Welcome Back",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
                               ),
                             ),
 
-                          state is AuthLoading
-                              ? const CircularProgressIndicator(
-                                  color: successColor,
-                                )
-                              : ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: primaryColor,
-                                    foregroundColor: cardColor,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 40,
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    context.read<AuthCubit>().login(
-                                      email: emailController.text.trim(),
-                                      password: passwordController.text.trim(),
-                                    );
-                                  },
-                                  child: const Text("Login"),
+                            const SizedBox(height: 5),
+
+                            const Text(
+                              "Sign in to continue",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: primaryColor,
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            TextField(
+                              controller: emailController,
+                              decoration: InputDecoration(
+                                labelText: "Email Address",
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                errorText: errors["email"]?.first,
+                              ),
+                              onChanged: (_) {
+                                context.read<AuthCubit>().clearFieldError(
+                                  "email",
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 15),
+
+                            TextField(
+                              controller: passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: "Password",
+                                prefixIcon: const Icon(Icons.password),
+                                errorText: errors["password"]?.first,
+                              ),
+                              onChanged: (_) {
+                                context.read<AuthCubit>().clearFieldError(
+                                  "password",
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 25),
+                            //Syncing state
+                            if (state is AuthSyncing)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10.0,
                                 ),
-                          const SizedBox(height: 16),
-
-                          GestureDetector(
-                            onTap: () => Get.toNamed(AppRoutes.register),
-                            child: const Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: "Don't have an account? ",
-                                    style: TextStyle(color: Colors.black87),
-                                  ),
-                                  TextSpan(
-                                    text: "Register",
-                                    style: TextStyle(
-                                      color: Color.fromARGB(255, 22, 148, 212),
-                                      fontWeight: FontWeight.bold,
-                                      fontStyle: FontStyle.italic,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    CircularProgressIndicator(
+                                      color: successColor,
                                     ),
+                                    SizedBox(width: 10),
+                                    Text("Syncing offline data..."),
+                                  ],
+                                ),
+                              ),
+
+                            state is AuthLoading
+                                ? const CircularProgressIndicator(
+                                    color: successColor,
+                                  )
+                                : ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      foregroundColor: cardColor,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 40,
+                                        vertical: 15,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      context.read<AuthCubit>().login(
+                                        email: emailController.text.trim(),
+                                        password: passwordController.text
+                                            .trim(),
+                                      );
+                                    },
+                                    child: const Text("Login"),
                                   ),
-                                ],
+                            const SizedBox(height: 16),
+
+                            GestureDetector(
+                              onTap: () => Get.toNamed(AppRoutes.register),
+                              child: const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: "Don't have an account? ",
+                                      style: TextStyle(color: Colors.black87),
+                                    ),
+                                    TextSpan(
+                                      text: "Register",
+                                      style: TextStyle(
+                                        color: Color.fromARGB(
+                                          255,
+                                          22,
+                                          148,
+                                          212,
+                                        ),
+                                        fontWeight: FontWeight.bold,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

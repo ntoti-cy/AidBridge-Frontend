@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
-
 import '../../Local/offline_user.dart';
 import '../../Services/auth_service.dart';
 import 'beneficiary_state.dart';
@@ -11,9 +10,7 @@ class BeneficiaryCubit extends Cubit<BeneficiaryState> {
 
   BeneficiaryCubit(this.authService) : super(BeneficiaryInitial());
 
-  /// ============================================
-  /// LOAD PROFILE
-  /// ============================================
+  // LOAD PROFILE
   Future<void> loadProfile() async {
     emit(BeneficiaryLoading());
 
@@ -41,9 +38,7 @@ class BeneficiaryCubit extends Cubit<BeneficiaryState> {
     }
   }
 
-  /// ============================================
-  /// REFRESH PROFILE
-  /// ============================================
+  // REFRESH PROFILE
   Future<void> refreshProfile() async {
     await loadProfile();
   }

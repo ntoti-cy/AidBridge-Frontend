@@ -20,10 +20,7 @@ class AuthService {
 
   String? get AccessToken => _accessToken;
 
-  // ============================
-  // INITIALIZATION
-  // ============================
-
+  // Initialization
   Future<void> init() async {
     _accessToken = await _storage.read(key: 'access_token');
   }
@@ -39,10 +36,7 @@ class AuthService {
     await _storage.delete(key: 'refresh_token');
   }
 
-  // ============================
-  // REGISTER
-  // ============================
-
+  // Register
   Future<Map<String, dynamic>> register({
     required String firstName,
     required String secondName,
@@ -66,10 +60,7 @@ class AuthService {
     return Map<String, dynamic>.from(response.data);
   }
 
-  // ============================
-  // LOGIN
-  // ============================
-
+  // Login
   Future<String> login({
     required String email,
     required String password,
@@ -98,10 +89,7 @@ class AuthService {
     return accessToken;
   }
 
-  // ============================
-  // LOGOUT
-  // ============================
-
+  // Logout
   Future<void> logout() async {
     try {
       await dio.post('/api/auth/logout');
@@ -110,10 +98,7 @@ class AuthService {
     await clearAccessToken();
   }
 
-  // ============================
-  // REFRESH TOKEN
-  // ============================
-
+  // Refresh
   Future<Map<String, dynamic>> refreshAccessToken() async {
     final refreshToken = await _storage.read(key: "refresh_token");
 
@@ -139,20 +124,21 @@ class AuthService {
     return data;
   }
 
-  // ============================
-  // USER PROFILE
-  // ============================
+  //Token Status
+  Future<Map<String, dynamic>> getTokenStatus() async {
+    final response = await dio.get("/api/user/token-status");
 
+    return response.data;
+  }
+
+  // User Profile
   Future<Map<String, dynamic>> getUserProfile() async {
     final response = await dio.get("/api/crud/me");
 
     return Map<String, dynamic>.from(response.data);
   }
 
-  // ============================
-  // BENEFICIARY
-  // ============================
-
+  // Beneficiary
   Future<Map<String, dynamic>> requestAidToken() async {
     final response = await dio.post("/api/user/request-token");
 
@@ -168,10 +154,8 @@ class AuthService {
   Future<void> completeProfile(Map<String, dynamic> data) async {
     await dio.post("/api/crud/complete-profile", data: data);
   }
-  // ============================
-  // PASSWORD
-  // ============================
 
+  // Password
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -182,11 +166,8 @@ class AuthService {
     );
   }
 
-  // =====================================================
   // OFFICER
-  // =====================================================
-
-  /// Verify QR/manual token
+  // Verify QR/manual token
   Future<Map<String, dynamic>> verifyToken(String aidToken) async {
     final response = await dio.post(
       '/api/officer/verify-token',
@@ -196,7 +177,7 @@ class AuthService {
     return response.data;
   }
 
-  /// Collect aid
+  // Collect aid
   Future<Map<String, dynamic>> collectAid(String aidToken) async {
     final response = await dio.post(
       '/api/officer/collect-aid',
@@ -206,7 +187,7 @@ class AuthService {
     return response.data;
   }
 
-  /// Download beneficiaries for offline use
+  // Download beneficiaries for offline use
   Future<Map<String, dynamic>> downloadBeneficiaries() async {
     final response = await dio.get('/api/officer/download-beneficiaries');
 

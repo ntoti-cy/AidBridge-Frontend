@@ -1,83 +1,73 @@
-import 'package:aid_bridge/Local/offline_token.dart';
-import 'package:aid_bridge/Models/token_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 
+import '../../Local/offline_token.dart';
+import '../../Models/token_model.dart';
 import '../../Services/auth_service.dart';
 import 'token_state.dart';
 
 class TokenCubit extends Cubit<TokenState> {
   final AuthService authService;
-  final OfflineToken offlineToken =OfflineToken();
 
-  TokenCubit(this.authService)
-      : super(TokenInitial());
+  final OfflineToken offlineToken = OfflineToken();
 
-  /// ===============================
-  /// REQUEST NEW TOKEN
-  /// ===============================
+  TokenCubit(this.authService) : super(TokenInitial());
+
+  // Request New Tokens
   Future<void> requestToken() async {
-    final response = await authService.requestAidToken();
-
-final token = Token.fromJson(response);
-
-await offlineToken.saveToken(token);
-
-emit(TokenGenerated(response));
-    emit(TokenLoading());
+    emit(TokenGenerating());
 
     try {
-      final response =
-          await authService.requestAidToken();
+      final response = await authService.requestAidToken();
 
-      emit(
-        TokenGenerated(response),
-      );
-    }
+      final token = Token.fromJson(response);
 
-    on DioException catch (e) {
+      await offlineToken.saveToken(token);
+
+      emit(TokenGenerated(response));
+
+      await loadDashboard();
+    } on DioException catch (e) {
       emit(
         TokenFailure(
           e.response?.data["error"] ??
+              e.response?.data["message"] ??
               "Failed to request token.",
         ),
       );
-    }
-
-    catch (e) {
-      emit(
-        TokenFailure(
-          e.toString(),
-        ),
-      );
+    } catch (e) {
+      emit(TokenFailure(e.toString()));
     }
   }
 
-  /// ===============================
-  /// LOAD TOKEN HISTORY
-  /// ===============================
-  Future<void> loadHistory() async {
-  emit(TokenLoading());
+  Future<void> loadDashboard() async {
+    emit(TokenLoading());
 
-  try {
-    final response =
-        await authService.getTokenHistory();
+    try {
+      final status = await authService.getTokenStatus();
 
-    emit(
-      TokenHistoryLoaded(
-        response["tokens"],
-      ),
-    );
-  } on DioException {
-    final history = await offlineToken.getHistory();
+      final historyResponse = await authService.getTokenHistory();
 
-    emit(
-      TokenHistoryLoaded(
-        history
-            .map((e) => e.toMap())
-            .toList(),
-      ),
-    );
+      final history = historyResponse["history"] ?? [];
+
+      emit(TokenDashboardLoaded(status: status, history: history));
+    } on DioException {
+      try {
+        final offline = await offlineToken.getHistory();
+
+        emit(
+          TokenDashboardLoaded(
+            status: {"has_token": false},
+            history: offline.map((e) => e.toMap()).toList(),
+          ),
+        );
+      } catch (_) {
+        emit(
+          const TokenDashboardLoaded(status: {"has_token": false}, history: []),
+        );
+      }
+    } catch (e) {
+      emit(TokenFailure(e.toString()));
+    }
   }
-}
 }
