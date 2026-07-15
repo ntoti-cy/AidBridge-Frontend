@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
 import 'package:aid_bridge/Controllers/officer/officer_state.dart';
@@ -92,6 +93,7 @@ class _QRScannerState extends State<QRScanner> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -105,18 +107,39 @@ class _QRScannerState extends State<QRScanner> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 "Manual Verification",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "Enter beneficiary aid token code manually.",
+                style: TextStyle(color: textSecondaryColor, fontSize: 12),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: controller,
                 decoration: InputDecoration(
                   labelText: "Beneficiary Token",
+                  prefixIcon: const Icon(
+                    Icons.qr_code_rounded,
+                    color: primaryColor,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
                   ),
                 ),
               ),
@@ -127,6 +150,11 @@ class _QRScannerState extends State<QRScanner> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     final token = controller.text.trim();
@@ -148,7 +176,10 @@ class _QRScannerState extends State<QRScanner> {
 
                     context.read<OfficerCubit>().verifyToken(token);
                   },
-                  child: const Text("Verify Token"),
+                  child: const Text(
+                    "Verify Token",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -181,9 +212,13 @@ class _QRScannerState extends State<QRScanner> {
   void _message(String text, Color color) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(backgroundColor: color, content: Text(text)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: color,
+        content: Text(text),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   //--------------------------------------------------
@@ -192,11 +227,12 @@ class _QRScannerState extends State<QRScanner> {
 
   Widget _infoTile(String title, String value) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
         children: [
@@ -204,7 +240,7 @@ class _QRScannerState extends State<QRScanner> {
             flex: 2,
             child: Text(
               title,
-              style: const TextStyle(color: textSecondaryColor),
+              style: const TextStyle(color: textSecondaryColor, fontSize: 13),
             ),
           ),
           Expanded(
@@ -212,7 +248,11 @@ class _QRScannerState extends State<QRScanner> {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: textColor,
+              ),
             ),
           ),
         ],
@@ -232,8 +272,9 @@ class _QRScannerState extends State<QRScanner> {
       isDismissible: false,
       enableDrag: false,
       isScrollControlled: true,
+      backgroundColor: cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
@@ -242,27 +283,36 @@ class _QRScannerState extends State<QRScanner> {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                radius: 40,
-                backgroundColor: successColor.withOpacity(.12),
+                radius: 36,
+                backgroundColor: successColor.withOpacity(0.1),
                 child: const Icon(
-                  Icons.check_circle,
+                  Icons.check_circle_rounded,
                   color: successColor,
-                  size: 46,
+                  size: 40,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               const Text(
                 "Beneficiary Verified",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               const Text(
                 "The beneficiary is eligible to receive aid.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: textSecondaryColor),
+                style: TextStyle(color: textSecondaryColor, fontSize: 13),
               ),
-              const SizedBox(height: 24),
-              _infoTile("Name", data["beneficiary_name"]?.toString() ?? "-"),
+              const SizedBox(height: 20),
+              _infoTile(
+                "Name",
+                data["beneficiary_name"]?.toString() ??
+                    data["name"]?.toString() ??
+                    "-",
+              ),
               _infoTile("National ID", data["national_id"]?.toString() ?? "-"),
               _infoTile(
                 "Centre",
@@ -270,7 +320,9 @@ class _QRScannerState extends State<QRScanner> {
               ),
               _infoTile(
                 "Household",
-                data["household_members"]?.toString() ?? "-",
+                data["household_members"]?.toString() ??
+                    data["total_members"]?.toString() ??
+                    "-",
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -279,10 +331,17 @@ class _QRScannerState extends State<QRScanner> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  icon: const Icon(Icons.volunteer_activism),
-                  label: const Text("Distribute Aid"),
+                  icon: const Icon(Icons.volunteer_activism_rounded, size: 20),
+                  label: const Text(
+                    "Distribute Aid",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () {
                     Navigator.pop(context);
                     final token =
@@ -295,13 +354,19 @@ class _QRScannerState extends State<QRScanner> {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await _restartScanner();
                 },
-                child: const Text("Scan Another"),
+                child: const Text(
+                  "Scan Another",
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -321,8 +386,9 @@ class _QRScannerState extends State<QRScanner> {
       context: context,
       isDismissible: false,
       enableDrag: false,
+      backgroundColor: cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
@@ -331,23 +397,28 @@ class _QRScannerState extends State<QRScanner> {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                radius: 40,
-                backgroundColor: errorColor.withOpacity(.12),
-                child: const Icon(Icons.cancel, color: errorColor, size: 46),
+                radius: 36,
+                backgroundColor: errorColor.withOpacity(0.1),
+                child: const Icon(
+                  Icons.cancel_rounded,
+                  color: errorColor,
+                  size: 40,
+                ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: textColor,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: textSecondaryColor),
+                style: const TextStyle(color: textSecondaryColor, fontSize: 13),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -356,12 +427,20 @@ class _QRScannerState extends State<QRScanner> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () async {
                     Navigator.pop(context);
                     await _restartScanner();
                   },
-                  child: const Text("Scan Again"),
+                  child: const Text(
+                    "Scan Again",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -423,157 +502,186 @@ class _QRScannerState extends State<QRScanner> {
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: backgroundColor,
           appBar: AppBar(
             elevation: 0,
-            backgroundColor: backgroundColor,
+            backgroundColor: Colors.transparent,
             foregroundColor: textColor,
             centerTitle: true,
             title: const Text(
               "Verify Beneficiary",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
               onPressed: Get.back,
             ),
           ),
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  // Status Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.08),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+          body: AppBackground(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                child: Column(
+                  children: [
+                    // Status Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Aid Verification Status",
+                            style: TextStyle(
+                              color: textSecondaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            status,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // QR Camera Scanner Frame
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          height: 260,
+                          width: 260,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: primaryColor.withOpacity(0.5),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withOpacity(0.05),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: MobileScanner(
+                              controller: scanner,
+                              onDetect: _onDetect,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Controls Row (Torch & Manual Entry)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cardColor,
+                              foregroundColor: textColor,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade200),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await scanner.toggleTorch();
+                              setState(() {
+                                torch = !torch;
+                              });
+                            },
+                            icon: Icon(
+                              torch
+                                  ? Icons.flash_on_rounded
+                                  : Icons.flash_off_rounded,
+                              color: torch ? primaryColor : textColor,
+                              size: 18,
+                            ),
+                            label: Text(
+                              torch ? "Torch On" : "Torch Off",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: _manualEntry,
+                            icon: const Icon(Icons.keyboard_rounded, size: 18),
+                            label: const Text(
+                              "Manual Entry",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          "Aid Verification",
+                    const SizedBox(height: 20),
+
+                    // Offline Database Indicator
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          Icons.cloud_done_rounded,
+                          size: 16,
+                          color: successColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          "Offline database fully available",
                           style: TextStyle(
                             color: textSecondaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // QR Camera Scanner Frame
-                  Expanded(
-                    child: Center(
-                      child: Container(
-                        height: 280,
-                        width: 280,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: primaryColor.withOpacity(0.5),
-                            width: 2,
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
-                          child: MobileScanner(
-                            controller: scanner,
-                            onDetect: _onDetect,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Controls Row (Torch & Manual Entry)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: textColor,
-                          elevation: 1,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () async {
-                          await scanner.toggleTorch();
-                          setState(() {
-                            torch = !torch;
-                          });
-                        },
-                        icon: Icon(
-                          torch ? Icons.flash_on : Icons.flash_off,
-                          color: torch ? primaryColor : textColor,
-                        ),
-                        label: Text(torch ? "Torch On" : "Torch Off"),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 1,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: _manualEntry,
-                        icon: const Icon(Icons.keyboard),
-                        label: const Text("Manual Entry"),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Offline Database Indicator
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.cloud_done, size: 16, color: successColor),
-                      SizedBox(width: 8),
-                      Text(
-                        "Offline database available",
-                        style: TextStyle(
-                          color: textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

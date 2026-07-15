@@ -1,3 +1,4 @@
+import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
 import 'package:aid_bridge/Controllers/officer/officer_state.dart';
@@ -20,65 +21,78 @@ class _BeneficiaryDetailsState extends State<BeneficiaryDetails> {
   @override
   void initState() {
     super.initState();
-
     beneficiary = Get.arguments as Map<String, dynamic>;
   }
 
   bool get active =>
       (beneficiary["token_status"] ?? "").toString().toLowerCase() == "active";
+
   //--------------------------------------------------
   // Profile Card
   //--------------------------------------------------
 
   Widget _profileCard() {
+    final displayName =
+        beneficiary["name"] ??
+        beneficiary["beneficiary_name"] ??
+        "Unknown Beneficiary";
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 40,
-            backgroundColor: primaryColor.withOpacity(.1),
-            child: const Icon(Icons.person, color: primaryColor, size: 42),
+            radius: 36,
+            backgroundColor: primaryColor.withOpacity(0.1),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: primaryColor,
+              size: 36,
+            ),
           ),
-
-          const SizedBox(height: 18),
-
+          const SizedBox(height: 16),
           Text(
-            beneficiary["beneficiary_name"] ??
-                beneficiary["name"] ??
-                "Unknown Beneficiary",
+            displayName,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
-
-          const SizedBox(height: 6),
-
+          const SizedBox(height: 4),
           Text(
             "National ID: ${beneficiary["national_id"] ?? "-"}",
-            style: const TextStyle(color: textSecondaryColor),
+            style: const TextStyle(color: textSecondaryColor, fontSize: 13),
           ),
-
-          const SizedBox(height: 18),
-
+          const SizedBox(height: 16),
           Chip(
             avatar: Icon(
-              active ? Icons.check_circle : Icons.cancel,
+              active ? Icons.check_circle_rounded : Icons.cancel_rounded,
               color: active ? successColor : errorColor,
-              size: 18,
+              size: 16,
             ),
             backgroundColor: active
-                ? successColor.withOpacity(.12)
-                : errorColor.withOpacity(.12),
+                ? successColor.withOpacity(0.1)
+                : errorColor.withOpacity(0.1),
             label: Text(
               active ? "ACTIVE TOKEN" : "INVALID TOKEN",
               style: TextStyle(
                 color: active ? successColor : errorColor,
                 fontWeight: FontWeight.bold,
+                fontSize: 11,
               ),
             ),
           ),
@@ -87,31 +101,35 @@ class _BeneficiaryDetailsState extends State<BeneficiaryDetails> {
     );
   }
 
-  ////////////////////////////////////////////////////
+  //--------------------------------------------------
   // Small Statistics Card
-  ////////////////////////////////////////////////////
+  //--------------------------------------------------
 
   Widget _statCard(IconData icon, String title, dynamic value) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(14),
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
         ),
         child: Column(
           children: [
-            Icon(icon, color: primaryColor),
-
-            const SizedBox(height: 10),
-
-            Text(title, style: const TextStyle(color: textSecondaryColor)),
-
-            const SizedBox(height: 6),
-
+            Icon(icon, color: primaryColor, size: 22),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(color: textSecondaryColor, fontSize: 11),
+            ),
+            const SizedBox(height: 4),
             Text(
               "$value",
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
           ],
         ),
@@ -119,317 +137,345 @@ class _BeneficiaryDetailsState extends State<BeneficiaryDetails> {
     );
   }
 
-  ////////////////////////////////////////////////////
+  //--------------------------------------------------
   // Information Tile
-  ////////////////////////////////////////////////////
+  //--------------------------------------------------
 
   Widget _infoTile(IconData icon, String title, String value) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: primaryColor.withOpacity(.1),
-        child: Icon(icon, color: primaryColor),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: primaryColor, size: 20),
       ),
-      title: Text(title),
-      subtitle: Text(value),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 13, color: textSecondaryColor),
+      ),
+      subtitle: Text(
+        value,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
+      ),
     );
   }
+
   //--------------------------------------------------
   // Build
   //--------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<OfficerCubit, OfficerState>(
-      listener: (context, state) {
-        if (state is AidDistributed) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: successColor,
-              content: Text("Aid distributed successfully."),
-            ),
-          );
+    final bool aidCollected = beneficiary["aid_collected"] == true;
 
-          Get.back(result: true);
-        }
-
-        if (state is OfficerFailure) {
-          setState(() {
-            collectingAid = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: errorColor, content: Text(state.message)),
-          );
-        }
-      },
-
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: backgroundColor,
-
-          appBar: AppBar(
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            foregroundColor: textColor,
-
-            title: const Text(
-              "Beneficiary Details",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: Get.back,
-            ),
-          ),
-
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                //------------------------------------------------
-                // Profile
-                //------------------------------------------------
-                _profileCard(),
-
-                const SizedBox(height: 24),
-
-                //------------------------------------------------
-                // Household Information
-                //------------------------------------------------
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.groups_outlined, color: primaryColor),
-
-                          SizedBox(width: 10),
-
-                          Text(
-                            "Household Information",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Row(
-                        children: [
-                          _statCard(
-                            Icons.people_outline,
-                            "Members",
-                            beneficiary["total_members"] ??
-                                beneficiary["household_members"] ??
-                                0,
-                          ),
-
-                          const SizedBox(width: 14),
-
-                          _statCard(
-                            Icons.child_care,
-                            "Dependents",
-                            beneficiary["dependents_count"] ?? 0,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      _infoTile(
-                        Icons.accessible_forward,
-                        "Disability",
-                        beneficiary["disability_present"] == true
-                            ? "Present"
-                            : "None",
-                      ),
-
-                      const Divider(height: 28),
-
-                      _infoTile(
-                        Icons.payments_outlined,
-                        "Income",
-                        "KES ${beneficiary["income_level"] ?? 0}",
-                      ),
-                    ],
-                  ),
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: textColor,
+        title: const Text(
+          "Beneficiary Details",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          onPressed: Get.back,
+        ),
+      ),
+      body: AppBackground(
+        child: BlocConsumer<OfficerCubit, OfficerState>(
+          listener: (context, state) {
+            if (state is AidDistributed) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: successColor,
+                  content: Text("Aid distributed successfully."),
+                  behavior: SnackBarBehavior.floating,
                 ),
+              );
+              Get.back(result: true);
+            }
 
-                const SizedBox(height: 24),
+            if (state is OfficerFailure) {
+              setState(() {
+                collectingAid = false;
+              });
 
-                //------------------------------------------------
-                // Distribution Information
-                //------------------------------------------------
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade200),
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: errorColor,
+                  content: Text(state.message),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  //------------------------------------------------
+                  // Profile Card
+                  //------------------------------------------------
+                  _profileCard(),
+
+                  const SizedBox(height: 20),
+
+                  //------------------------------------------------
+                  // Household Information
+                  //------------------------------------------------
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.groups_outlined,
+                              color: primaryColor,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Household Information",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            _statCard(
+                              Icons.people_outline,
+                              "Members",
+                              beneficiary["total_members"] ??
+                                  beneficiary["household_members"] ??
+                                  0,
+                            ),
+                            const SizedBox(width: 12),
+                            _statCard(
+                              Icons.child_care_rounded,
+                              "Dependents",
+                              beneficiary["dependents_count"] ?? 0,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _infoTile(
+                          Icons.accessible_forward_rounded,
+                          "Disability Status",
+                          beneficiary["disability_present"] == true
+                              ? "Present"
+                              : "None",
+                        ),
+                        const Divider(height: 20, color: Color(0xFFE5E7EB)),
+                        _infoTile(
+                          Icons.payments_outlined,
+                          "Income Level",
+                          "KES ${beneficiary["income_level"] ?? 0}",
+                        ),
+                      ],
+                    ),
                   ),
 
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 20),
 
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.location_on_outlined, color: primaryColor),
-
-                          SizedBox(width: 10),
-
-                          Text(
-                            "Distribution Information",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                  //------------------------------------------------
+                  // Distribution Information
+                  //------------------------------------------------
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              color: primaryColor,
+                              size: 20,
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      _infoTile(
-                        Icons.location_city,
-                        "Distribution Centre",
-                        beneficiary["distribution_center"] ?? "Not Assigned",
-                      ),
-
-                      const Divider(height: 28),
-
-                      _infoTile(
-                        Icons.qr_code,
-                        "Aid Token",
-                        beneficiary["aid_token"] ?? "-",
-                      ),
-
-                      const Divider(height: 28),
-
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-
-                        leading: CircleAvatar(
-                          backgroundColor: beneficiary["aid_collected"] == true
-                              ? successColor.withOpacity(.12)
-                              : Colors.orange.withOpacity(.12),
-
-                          child: Icon(
-                            beneficiary["aid_collected"] == true
-                                ? Icons.check_circle
-                                : Icons.inventory_2_outlined,
-
-                            color: beneficiary["aid_collected"] == true
-                                ? successColor
-                                : Colors.orange,
-                          ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Distribution Information",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                          ],
                         ),
-
-                        title: const Text("Aid Status"),
-
-                        subtitle: Text(
-                          beneficiary["aid_collected"] == true
-                              ? "Already Collected"
-                              : "Pending Collection",
+                        const SizedBox(height: 16),
+                        _infoTile(
+                          Icons.location_city_rounded,
+                          "Distribution Center",
+                          beneficiary["distribution_center"] ?? "Not Assigned",
                         ),
-
-                        trailing: Chip(
-                          backgroundColor: beneficiary["aid_collected"] == true
-                              ? successColor.withOpacity(.12)
-                              : Colors.orange.withOpacity(.12),
-
-                          label: Text(
-                            beneficiary["aid_collected"] == true
-                                ? "COLLECTED"
-                                : "PENDING",
-
-                            style: TextStyle(
-                              color: beneficiary["aid_collected"] == true
+                        const Divider(height: 20, color: Color(0xFFE5E7EB)),
+                        _infoTile(
+                          Icons.qr_code_rounded,
+                          "Aid Token",
+                          beneficiary["aid_token"] ?? "-",
+                        ),
+                        const Divider(height: 20, color: Color(0xFFE5E7EB)),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: aidCollected
+                                  ? successColor.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              aidCollected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.inventory_2_outlined,
+                              color: aidCollected
                                   ? successColor
                                   : Colors.orange,
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            "Aid Status",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textSecondaryColor,
+                            ),
+                          ),
+                          subtitle: Text(
+                            aidCollected
+                                ? "Already Collected"
+                                : "Pending Collection",
+                            style: const TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          trailing: Chip(
+                            backgroundColor: aidCollected
+                                ? successColor.withOpacity(0.1)
+                                : Colors.orange.withOpacity(0.1),
+                            label: Text(
+                              aidCollected ? "COLLECTED" : "PENDING",
+                              style: TextStyle(
+                                color: aidCollected
+                                    ? successColor
+                                    : Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                //------------------------------------------------
-                // Distribute Aid Button
-                //------------------------------------------------
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      ],
                     ),
+                  ),
 
-                    onPressed:
-                        collectingAid || beneficiary["aid_collected"] == true
-                        ? null
-                        : () {
-                            setState(() {
-                              collectingAid = true;
-                            });
+                  const SizedBox(height: 28),
 
-                            context.read<OfficerCubit>().distributeAid(
-                              beneficiary["aid_token"],
-                            );
-                          },
+                  //------------------------------------------------
+                  // Distribute Aid Button
+                  //------------------------------------------------
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: collectingAid || aidCollected
+                          ? null
+                          : () {
+                              setState(() {
+                                collectingAid = true;
+                              });
 
-                    icon: collectingAid
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                              context.read<OfficerCubit>().distributeAid(
+                                beneficiary["aid_token"],
+                              );
+                            },
+                      icon: collectingAid
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.volunteer_activism_rounded,
+                              size: 20,
                             ),
-                          )
-                        : const Icon(Icons.volunteer_activism),
-
-                    label: Text(
-                      beneficiary["aid_collected"] == true
-                          ? "Aid Already Collected"
-                          : collectingAid
-                          ? "Processing..."
-                          : "Distribute Aid",
+                      label: Text(
+                        aidCollected
+                            ? "Aid Already Collected"
+                            : collectingAid
+                            ? "Processing..."
+                            : "Distribute Aid",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 30),
-              ],
-            ),
-          ),
-        );
-      },
+                  const SizedBox(height: 30),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

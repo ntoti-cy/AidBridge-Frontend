@@ -3,14 +3,14 @@ import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
 
-class Profile extends StatefulWidget {
-  const Profile({super.key});
+class OfficerProfile extends StatefulWidget {
+  const OfficerProfile({super.key});
 
   @override
-  State<Profile> createState() => _ProfileState();
+  State<OfficerProfile> createState() => _OfficerProfileState();
 }
 
-class _ProfileState extends State<Profile> {
+class _OfficerProfileState extends State<OfficerProfile> {
   final AuthService _authService = AuthService();
   bool loading = true;
   Map<String, dynamic>? user;
@@ -96,7 +96,7 @@ class _ProfileState extends State<Profile> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "My Profile",
+          "Officer Profile",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
@@ -178,7 +178,7 @@ class _ProfileState extends State<Profile> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: Text(
-                              (user!["role"] ?? "Beneficiary")
+                              (user!["role"] ?? "Field Officer")
                                   .toString()
                                   .replaceAll("_", " ")
                                   .toUpperCase(),
@@ -195,7 +195,7 @@ class _ProfileState extends State<Profile> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Personal Information Container
+                    // Officer Information Container
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -217,13 +217,13 @@ class _ProfileState extends State<Profile> {
                           const Row(
                             children: [
                               Icon(
-                                Icons.person_outline_rounded,
+                                Icons.badge_outlined,
                                 color: primaryColor,
                                 size: 20,
                               ),
                               SizedBox(width: 8),
                               Text(
-                                "Personal Information",
+                                "Officer Information",
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -247,8 +247,14 @@ class _ProfileState extends State<Profile> {
                           const Divider(height: 16),
                           _buildProfileRow(
                             icon: Icons.phone_outlined,
-                            title: "Phone Contact",
+                            title: "Phone Number",
                             value: user!["contact"]?.toString() ?? "-",
+                          ),
+                          const Divider(height: 16),
+                          _buildProfileRow(
+                            icon: Icons.email_outlined,
+                            title: "Email",
+                            value: user!["email"]?.toString() ?? "-",
                           ),
                           const Divider(height: 16),
                           _buildProfileRow(
@@ -261,7 +267,7 @@ class _ProfileState extends State<Profile> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Household & Distribution Information Container
+                    // Employment Information Container
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -283,13 +289,13 @@ class _ProfileState extends State<Profile> {
                           const Row(
                             children: [
                               Icon(
-                                Icons.groups_outlined,
+                                Icons.work_outline_rounded,
                                 color: secondaryColor,
                                 size: 20,
                               ),
                               SizedBox(width: 8),
                               Text(
-                                "Household Details",
+                                "Employment Information",
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -300,43 +306,20 @@ class _ProfileState extends State<Profile> {
                           ),
                           const SizedBox(height: 16),
                           _buildProfileRow(
+                            icon: Icons.admin_panel_settings_outlined,
+                            title: "Role",
+                            value: (user!["role"] ?? "Field Officer")
+                                .toString()
+                                .replaceAll("_", " ")
+                                .toUpperCase(),
+                          ),
+                          const Divider(height: 16),
+                          _buildProfileRow(
                             icon: Icons.location_on_outlined,
-                            title: "Distribution Centre",
+                            title: "Assigned Distribution Centre",
                             value:
                                 user!["assigned_center_name"]?.toString() ??
                                 "Not Assigned",
-                          ),
-                          const Divider(height: 16),
-                          _buildProfileRow(
-                            icon: Icons.people_outline,
-                            title: "Household Members",
-                            value:
-                                user!["total_members"]?.toString() ??
-                                "Pending Setup",
-                          ),
-                          const Divider(height: 16),
-                          _buildProfileRow(
-                            icon: Icons.child_care_outlined,
-                            title: "Dependents",
-                            value:
-                                user!["dependents_count"]?.toString() ??
-                                "Pending Setup",
-                          ),
-                          const Divider(height: 16),
-                          _buildProfileRow(
-                            icon: Icons.payments_outlined,
-                            title: "Monthly Income",
-                            value: user!["income_level"] != null
-                                ? "KES ${user!["income_level"]}"
-                                : "Pending Setup",
-                          ),
-                          const Divider(height: 16),
-                          _buildProfileRow(
-                            icon: Icons.accessible_forward_rounded,
-                            title: "Disability Present",
-                            value: user!["disability_present"] == true
-                                ? "Yes"
-                                : "No",
                           ),
                         ],
                       ),

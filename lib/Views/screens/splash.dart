@@ -121,7 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint("Auth init error: $e");
     }
 
-    await Future.delayed(const Duration(milliseconds: 700));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (auth.AccessToken == null) {
       Get.offAllNamed(AppRoutes.login);

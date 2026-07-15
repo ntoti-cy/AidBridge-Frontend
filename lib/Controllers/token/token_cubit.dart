@@ -26,13 +26,14 @@ class TokenCubit extends Cubit<TokenState> {
 
       emit(TokenGenerated(response));
 
-      await loadDashboard();
+      //await loadDashboard();
     } on DioException catch (e) {
+      final data = e.response?.data;
       emit(
         TokenFailure(
-          e.response?.data["error"] ??
-              e.response?.data["message"] ??
-              "Failed to request token.",
+          data is Map
+              ? (data["error"] ?? data["message"] ?? "Failed to request token.")
+              : "Failed to request token.",
         ),
       );
     } catch (e) {

@@ -24,6 +24,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
   int collectionCount = 0;
   bool navigatingToQr = false;
   String? currentActiveToken; // Store token locally once loaded
+  String? currentExpiryTime;
 
   @override
   void initState() {
@@ -142,7 +143,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    Get.toNamed(AppRoutes.profile);
+                    Get.toNamed(AppRoutes.beneficiaryProfile);
                   },
                 ),
                 const Divider(height: 20),
@@ -246,11 +247,13 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
               BlocListener<TokenCubit, TokenState>(
                 listener: (context, state) {
                   if (state is TokenGenerated) {
-                    final token = state.token["aid_token"]?.toString();
-                    final expiryTime = state.token["expiry_time"]?.toString();
+                    final token = state.response["aid_token"]?.toString();
+                    final expiryTime = state.response["expiry_time"]
+                        ?.toString();
                     if (token != null && token.isNotEmpty) {
                       setState(() {
                         currentActiveToken = token;
+                        currentExpiryTime = expiryTime;
                         hasToken = true;
                       });
                       _openQrCode(token, expiryTime: expiryTime);
@@ -263,6 +266,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                       centerName = data["center_name"]?.toString() ?? "";
                       tokenStatus = data["token_status"]?.toString() ?? "";
                       currentActiveToken = data["aid_token"]?.toString();
+                      currentExpiryTime = data["expiry_time"]?.toString();
                       collectionCount = state.history.length;
                     });
                   }
@@ -586,7 +590,10 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                 if (hasToken &&
                     currentActiveToken != null &&
                     currentActiveToken!.isNotEmpty) {
-                  _openQrCode(currentActiveToken!);
+                  _openQrCode(
+                    currentActiveToken!,
+                    expiryTime: currentExpiryTime,
+                  );
                 } else {
                   _generateToken();
                 }

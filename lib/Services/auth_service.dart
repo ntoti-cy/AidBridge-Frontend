@@ -128,7 +128,7 @@ class AuthService {
   Future<Map<String, dynamic>> getTokenStatus() async {
     final response = await dio.get("/api/user/token-status");
 
-    return response.data;
+    return Map<String, dynamic>.from(response.data);
   }
 
   // User Profile

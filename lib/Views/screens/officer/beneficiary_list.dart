@@ -1,14 +1,17 @@
+import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/help/db_helper.dart';
-import 'package:aid_bridge/Controllers/sync/sync_cubit.dart';
-import 'package:aid_bridge/Controllers/sync/sync_state.dart';
+import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
+import 'package:aid_bridge/Controllers/officer/officer_state.dart';
+import 'package:aid_bridge/Models/beneficiary_model.dart';
+import 'package:aid_bridge/Routes/app_routes.dart';
+import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 
 class BeneficiaryList extends StatefulWidget {
-  final String token;
-
-  const BeneficiaryList({super.key, required this.token});
+  const BeneficiaryList({super.key});
 
   @override
   State<BeneficiaryList> createState() => _BeneficiaryListState();
@@ -18,27 +21,19 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
   final DBHelper db = DBHelper();
 
   final searchController = TextEditingController();
-
   final tokenController = TextEditingController();
 
-  List beneficiaries = [];
-
-  List filtered = [];
-
+  List<Beneficiary> beneficiaries = [];
+  List<Beneficiary> filtered = [];
   bool loading = true;
-
   bool downloading = false;
-
   String tokenStatus = "";
-
   String lastSync = "Never";
 
   @override
   void initState() {
     super.initState();
-
     _loadOfflineData();
-
     searchController.addListener(_filterList);
   }
 
@@ -68,20 +63,13 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
       filtered = q.isEmpty
           ? beneficiaries
           : beneficiaries.where((b) {
-              return b.name.toLowerCase().contains(q) ||
-                  b.nationalId.toLowerCase().contains(q) ||
-                  b.aidToken.toLowerCase().contains(q);
+              final name = (b.name).toString().toLowerCase();
+              final nationalId = (b.nationalId).toString().toLowerCase();
+              final aidToken = (b.aidToken).toString().toLowerCase();
+              return name.contains(q) ||
+                  nationalId.contains(q) ||
+                  aidToken.contains(q);
             }).toList();
-    });
-  }
-
-  Future<void> _checkToken() async {
-    final status = await db.getTokenStatus(tokenController.text.trim());
-
-    if (!mounted) return;
-
-    setState(() {
-      tokenStatus = status.isEmpty ? "Token not found" : status;
     });
   }
 
@@ -93,107 +81,136 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     });
   }
 
+  void _openDetails(Beneficiary b) async {
+    // Convert SQLite model object or Map safely into a standard Map for Get.arguments
+    final Map<String, dynamic> beneficiaryMap = {
+      "name": b.name,
+      "national_id": b.nationalId,
+      "aid_token": b.aidToken,
+      "token_status": b.tokenStatus,
+      "total_members": b.totalMembers,
+      "dependents_count": b.dependentsCount,
+      "income_level": b.incomeLevel,
+      "disability_present": b.disabilityPresent,
+      "distribution_center": b.distributionCenter,
+      "aid_collected": (b.tokenStatus).toString().toLowerCase() == "used",
+    };
+
+    final result = await Get.toNamed(
+      AppRoutes.beneficiaryDetails,
+      arguments: beneficiaryMap,
+    );
+    if (result == true) {
+      _loadOfflineData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => SyncCubit(),
+      create: (_) => OfficerCubit(AuthService()),
       child: Scaffold(
-        backgroundColor: backgroundColor,
-
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
           foregroundColor: textColor,
-          title: const Text("Offline Beneficiaries"),
+          title: const Text(
+            "Offline Beneficiaries",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            onPressed: Get.back,
+          ),
         ),
+        body: AppBackground(
+          child: BlocConsumer<OfficerCubit, OfficerState>(
+            listener: (context, state) async {
+              if (state is OfficerLoading) {
+                setState(() {
+                  downloading = true;
+                });
+              }
 
-        body: BlocConsumer<SyncCubit, SyncState>(
-          listener: (context, state) async {
-            if (state is SyncLoading) {
-              setState(() {
-                downloading = true;
-              });
-            }
+              if (state is BeneficiariesDownloaded) {
+                setState(() {
+                  downloading = false;
+                });
+                await _loadOfflineData();
+                _updateLastSync();
 
-            if (state is SyncSuccess) {
-              downloading = false;
+                if (!mounted) return;
+                _updateLastSync();
 
-              await _loadOfflineData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: successColor,
+                    content: Text("${state.count} beneficiaries downloaded."),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
 
-              _updateLastSync();
-
-              if (!mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: successColor,
-                  content: Text("${state.count} beneficiaries downloaded."),
+              if (state is OfficerFailure) {
+                setState(() {
+                  downloading = false;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: errorColor,
+                    content: Text(state.message),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            builder: (_, state) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _header(),
+                    const SizedBox(height: 20),
+                    _downloadCard(),
+                    const SizedBox(height: 20),
+                    _searchBar(),
+                    const SizedBox(height: 20),
+                    _beneficiaryList(),
+                    const SizedBox(height: 30),
+                  ],
                 ),
               );
-
-              context.read<SyncCubit>().resetState();
-            }
-
-            if (state is SyncFailure) {
-              downloading = false;
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: errorColor,
-                  content: Text(state.error),
-                ),
-              );
-
-              context.read<SyncCubit>().resetState();
-            }
-          },
-
-          builder: (_, state) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _header(),
-
-                  const SizedBox(height: 20),
-
-                  _downloadCard(),
-
-                  const SizedBox(height: 20),
-
-                  _verifyCard(),
-
-                  const SizedBox(height: 20),
-
-                  _searchBar(),
-
-                  const SizedBox(height: 20),
-
-                  _beneficiaryList(),
-                ],
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
   }
+
   // =====================================================
   // HEADER
   // =====================================================
 
   Widget _header() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           "Offline Database",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
         ),
-        SizedBox(height: 6),
+        SizedBox(height: 4),
         Text(
-          "Download beneficiaries for offline verification.",
-          style: TextStyle(color: textSecondaryColor),
+          "Download beneficiaries for seamless offline verification.",
+          style: TextStyle(color: textSecondaryColor, fontSize: 13),
         ),
       ],
     );
@@ -208,7 +225,15 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -217,27 +242,27 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
               Expanded(
                 child: _infoBox("Downloaded", beneficiaries.length.toString()),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(child: _infoBox("Last Sync", lastSync)),
             ],
           ),
-
           const SizedBox(height: 20),
-
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: downloading
                   ? null
                   : () {
-                      context.read<SyncCubit>().syncData(widget.token);
+                      context.read<OfficerCubit>().downloadBeneficiaries();
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               icon: downloading
                   ? const SizedBox(
@@ -248,77 +273,16 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.sync),
-              label: Text(downloading ? "Downloading..." : "Download Latest"),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =====================================================
-  // VERIFY TOKEN
-  // =====================================================
-
-  Widget _verifyCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: tokenController,
-            decoration: InputDecoration(
-              labelText: "Aid Token",
-              prefixIcon: const Icon(Icons.qr_code),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _checkToken,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Verify Token"),
-            ),
-          ),
-
-          if (tokenStatus.isNotEmpty) ...[
-            const SizedBox(height: 18),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: tokenStatus.toLowerCase() == "active"
-                    ? successColor.withOpacity(.12)
-                    : errorColor.withOpacity(.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                tokenStatus,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: tokenStatus.toLowerCase() == "active"
-                      ? successColor
-                      : errorColor,
+                  : const Icon(Icons.sync_rounded, size: 20),
+              label: Text(
+                downloading ? "Downloading..." : "Download Latest",
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -332,13 +296,18 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     return TextField(
       controller: searchController,
       decoration: InputDecoration(
-        hintText: "Search beneficiary...",
-        prefixIcon: const Icon(Icons.search),
+        hintText: "Search beneficiary by name or ID...",
+        hintStyle: const TextStyle(color: textSecondaryColor, fontSize: 13),
+        prefixIcon: const Icon(Icons.search_rounded, color: textSecondaryColor),
         filled: true,
         fillColor: cardColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
       ),
     );
@@ -351,15 +320,20 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
   Widget _beneficiaryList() {
     if (loading) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
+        padding: EdgeInsets.symmetric(vertical: 40),
         child: Center(child: CircularProgressIndicator(color: primaryColor)),
       );
     }
 
     if (filtered.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: Text("No beneficiaries found.")),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Text(
+            "No beneficiaries found.",
+            style: TextStyle(color: textSecondaryColor, fontSize: 14),
+          ),
+        ),
       );
     }
 
@@ -375,70 +349,109 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
   // BENEFICIARY CARD
   // =====================================================
 
-  Widget _beneficiaryCard(dynamic b) {
-    final active = b.tokenStatus.toLowerCase() == "active";
+  Widget _beneficiaryCard(Beneficiary b) {
+    final active = (b.tokenStatus).toString().toLowerCase() == "active";
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: primaryColor,
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      b.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-
-                    Text(
-                      b.nationalId,
-                      style: const TextStyle(color: textSecondaryColor),
-                    ),
-                  ],
-                ),
-              ),
-
-              Chip(
-                label: Text(b.tokenStatus),
-                backgroundColor: active
-                    ? successColor.withOpacity(.15)
-                    : Colors.grey.shade200,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              const Icon(Icons.qr_code, size: 18, color: primaryColor),
-
-              const SizedBox(width: 8),
-
-              Expanded(
-                child: Text(
-                  b.aidToken,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openDetails(b),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: primaryColor.withOpacity(0.1),
+                    child: const Icon(
+                      Icons.person_outline_rounded,
+                      color: primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          b.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "ID: ${b.nationalId}",
+                          style: const TextStyle(
+                            color: textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Chip(
+                    label: Text(b.tokenStatus),
+                    backgroundColor: active
+                        ? successColor.withOpacity(0.1)
+                        : Colors.grey.shade100,
+                    labelStyle: TextStyle(
+                      color: active ? successColor : textSecondaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1, color: Color(0xFFE5E7EB)),
+              ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.qr_code_rounded,
+                    size: 16,
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      b.aidToken,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: textSecondaryColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -449,18 +462,26 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
 
   Widget _infoBox(String title, String value) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
-          Text(title, style: const TextStyle(color: textSecondaryColor)),
-          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(color: textSecondaryColor, fontSize: 11),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
         ],
       ),

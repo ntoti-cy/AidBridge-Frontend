@@ -1,6 +1,7 @@
+import 'package:aid_bridge/Views/screens/beneficiary/beneficiary_profile.dart';
 import 'package:aid_bridge/Views/screens/beneficiary/tokens.dart';
-import 'package:aid_bridge/Views/screens/crud/profile.dart';
 import 'package:aid_bridge/Views/screens/officer/beneficiary_details.dart';
+import 'package:aid_bridge/Views/screens/officer/officer_profile.dart';
 import 'package:get/get.dart';
 
 // Common imports
@@ -26,19 +27,20 @@ class AppRoutes {
   static const register = '/register';
   static const changePassword = '/changePassword';
   static const settings = '/settings';
-  static const profile = '/profile';
 
   // Beneficiary
   static const beneficiaryDashboard = '/beneficiaryDashboard';
   static const qrcode = '/qrcode';
   static const tokens = '/tokens';
   static const completeProfile = '/completeProfile';
+  static const beneficiaryProfile = '/beneficiaryProfile';
 
   // Officer
   static const officerDashboard = '/officerDashboard';
   static const qrScanner = '/qrScanner';
   static const beneficiaryList = '/beneficiaryList';
   static const beneficiaryDetails = '/beneficiaryDetails';
+  static const officerProfile = '/officerProfile';
 
   // Route Definitions
 
@@ -48,25 +50,20 @@ class AppRoutes {
     GetPage(name: login, page: () => Login()),
     GetPage(name: register, page: () => const Register()),
     GetPage(name: changePassword, page: () => ChangePassword()),
-    GetPage(name: profile, page: () => Profile()),
 
     // Beneficiary Pages
     GetPage(name: completeProfile, page: () => CompleteProfile()),
     GetPage(name: qrcode, page: () => QrCode()),
     GetPage(name: tokens, page: () => Tokens()),
     GetPage(name: beneficiaryDashboard, page: () => BeneficiaryDashboard()),
+    GetPage(name: beneficiaryProfile, page: () => BeneficiaryProfile()),
 
     //  Officer Pages
-    GetPage(
-      name: beneficiaryList,
-      page: () {
-        final args = Get.arguments as Map<String, dynamic>? ?? {};
-        return BeneficiaryList(token: args['token'] ?? '');
-      },
-    ),
+    GetPage(name: beneficiaryList, page: () => BeneficiaryList()),
 
     GetPage(name: officerDashboard, page: () => OfficerDashboard()),
     GetPage(name: qrScanner, page: () => QRScanner()),
     GetPage(name: beneficiaryDetails, page: () => BeneficiaryDetails()),
+    GetPage(name: officerProfile, page: () => OfficerProfile()),
   ];
 }

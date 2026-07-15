@@ -63,7 +63,7 @@ class _QrCodeState extends State<QrCode> {
   void _parseBackendExpiry() {
     if (backendExpiryStr != null && backendExpiryStr!.isNotEmpty) {
       try {
-        final expiryDate = DateTime.parse(backendExpiryStr!);
+        final expiryDate = DateTime.parse(backendExpiryStr!).toLocal();
         final now = DateTime.now();
         final difference = expiryDate.difference(now).inSeconds;
 
@@ -71,10 +71,7 @@ class _QrCodeState extends State<QrCode> {
           timeLeft = difference;
           // Keep a stable ceiling reference if totalDuration was smaller,
           // or set it to difference to reflect exact remaining block.
-          totalDuration = difference > totalDuration
-              ? difference
-              : totalDuration;
-          isExpired = false;
+          totalDuration = difference;
         } else {
           timeLeft = 0;
           isExpired = true;

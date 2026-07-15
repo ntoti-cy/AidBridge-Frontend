@@ -1,3 +1,5 @@
+import 'package:aid_bridge/Controllers/help/db_helper.dart';
+import 'package:aid_bridge/Models/beneficiary_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,6 +8,7 @@ import 'officer_state.dart';
 
 class OfficerCubit extends Cubit<OfficerState> {
   final AuthService authService;
+  final DBHelper db = DBHelper();
 
   OfficerCubit(this.authService) : super(OfficerInitial());
 
@@ -64,16 +67,20 @@ class OfficerCubit extends Cubit<OfficerState> {
       final beneficiary = response["beneficiary"];
 
       if (beneficiary == null) {
-        emit(const OfficerFailure("Beneficiary information missing."));
+        emit(const OfficerActionFailure("Beneficiary information missing."));
 
         return;
       }
 
       emit(TokenVerified(Map<String, dynamic>.from(beneficiary)));
     } on DioException catch (e) {
-      emit(OfficerFailure(e.response?.data["error"] ?? "Verification failed."));
+      emit(
+        OfficerActionFailure(
+          e.response?.data["error"] ?? "Verification failed.",
+        ),
+      );
     } catch (e) {
-      emit(const OfficerFailure("Unable to verify token."));
+      emit(const OfficerActionFailure("Unable to verify token."));
     }
   }
 
@@ -86,11 +93,32 @@ class OfficerCubit extends Cubit<OfficerState> {
 
       final List beneficiaries = response["beneficiaries"] ?? [];
 
-      emit(BeneficiariesDownloaded(beneficiaries.length));
+      // Convert JSON to Beneficiary objects
+      final beneficiaryList = beneficiaries
+          .map((e) => Beneficiary.fromJson(e))
+          .toList();
+
+      // Clear old records
+      await db.clearBeneficiaries();
+
+      print(response);
+      print("Objects: ${beneficiaryList.length}");
+
+      // Save new records
+      await db.insertBeneficiaries(beneficiaryList);
+
+      final saved = await db.getBeneficiaries();
+      print("SQLite count: ${saved.length}");
+      print("Saved beneficiaries: ${saved.length}");
+      print(saved.map((e) => e.name).toList());
+
+      emit(BeneficiariesDownloaded(beneficiaryList.length));
     } on DioException catch (e) {
-      emit(OfficerFailure(e.response?.data["error"] ?? "Download failed."));
+      emit(
+        OfficerActionFailure(e.response?.data["error"] ?? "Download failed."),
+      );
     } catch (e) {
-      emit(const OfficerFailure("Unable to download beneficiaries."));
+      emit(OfficerActionFailure(e.toString()));
     }
   }
 
@@ -103,9 +131,13 @@ class OfficerCubit extends Cubit<OfficerState> {
 
       emit(const AidDistributed());
     } on DioException catch (e) {
-      emit(OfficerFailure(e.response?.data["error"] ?? "Distribution failed."));
+      emit(
+        OfficerActionFailure(
+          e.response?.data["error"] ?? "Distribution failed.",
+        ),
+      );
     } catch (e) {
-      emit(const OfficerFailure("Unable to distribute aid."));
+      emit(const OfficerActionFailure("Unable to distribute aid."));
     }
   }
 
@@ -120,7 +152,44 @@ class OfficerCubit extends Cubit<OfficerState> {
 
       emit(const OfficerSyncSuccess(0));
     } catch (e) {
-      emit(const OfficerFailure("Synchronization failed."));
+      emit(const OfficerActionFailure("Synchronization failed."));
+    }
+  }
+
+  // Start Distribution Session
+  Future<void> startSession(String? expiryTime) async {
+    try {
+      await authService.dio.post(
+        '/api/officer/start-distribution-session',
+        data: expiryTime != null ? {"expiry_time": expiryTime} : {},
+      );
+      loadDashboard();
+    } on DioException catch (e) {
+      emit(
+        OfficerActionFailure(
+          e.response?.data["error"] ?? "Failed to start session.",
+        ),
+      );
+    } catch (_) {
+      emit(const OfficerActionFailure("Unable to start session."));
+    }
+  }
+
+  // End Distribution Session
+  Future<void> endSession(int sessionId) async {
+    try {
+      await authService.dio.post(
+        '/api/officer/end-distribution-session/$sessionId',
+      );
+      loadDashboard();
+    } on DioException catch (e) {
+      emit(
+        OfficerActionFailure(
+          e.response?.data["error"] ?? "Failed to end session.",
+        ),
+      );
+    } catch (_) {
+      emit(const OfficerActionFailure("Unable to end session."));
     }
   }
 }

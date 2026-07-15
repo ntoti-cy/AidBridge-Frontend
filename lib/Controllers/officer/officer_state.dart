@@ -13,7 +13,11 @@ class OfficerInitial extends OfficerState {}
 /// Dashboard Loading
 class OfficerLoading extends OfficerState {}
 
-/// Officer Dashboard Loaded
+class SessionStarting extends OfficerState {}
+
+class SessionEnding extends OfficerState {}
+
+// Officer Dashboard Loaded
 class OfficerLoaded extends OfficerState {
   final Map<String, dynamic> officer;
 
@@ -47,10 +51,10 @@ class OfficerLoaded extends OfficerState {
   ];
 }
 
-/// Token Verification
+// Token Verification
 class TokenVerificationLoading extends OfficerState {}
 
-/// Beneficiary verified successfully
+// Beneficiary verified successfully
 class TokenVerified extends OfficerState {
   final Map<String, dynamic> beneficiary;
 
@@ -60,17 +64,17 @@ class TokenVerified extends OfficerState {
   List<Object?> get props => [beneficiary];
 }
 
-/// Aid Distribution
+// Aid Distribution
 class AidDistributionLoading extends OfficerState {
   const AidDistributionLoading();
 }
 
-/// Aid successfully distributed
+// Aid successfully distributed
 class AidDistributed extends OfficerState {
   const AidDistributed();
 }
 
-/// Beneficiary Download
+// Beneficiary Download
 class BeneficiariesDownloaded extends OfficerState {
   final int count;
 
@@ -80,7 +84,7 @@ class BeneficiariesDownloaded extends OfficerState {
   List<Object?> get props => [count];
 }
 
-/// Offline Synchronization
+// Offline Synchronization
 class OfficerSyncSuccess extends OfficerState {
   final int synced;
 
@@ -95,6 +99,15 @@ class OfficerFailure extends OfficerState {
   final String message;
 
   const OfficerFailure(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+class OfficerActionFailure extends OfficerState {
+  final String message;
+
+  const OfficerActionFailure(this.message);
 
   @override
   List<Object?> get props => [message];

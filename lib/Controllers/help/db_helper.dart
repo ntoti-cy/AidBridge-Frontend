@@ -20,7 +20,7 @@ class DBHelper {
     final path = join(await getDatabasesPath(), 'aidbridge.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -33,20 +33,24 @@ class DBHelper {
             name TEXT,
             aid_token TEXT UNIQUE,
             national_id TEXT UNIQUE,
-            token_status TEXT
+            token_status TEXT,
+            total_members INTEGER,
+            dependents_count INTEGER,
+            income_level REAL,
+            disability_present INTEGER,
+            distribution_center TEXT
           )
         ''');
 
     await db.execute('''
           CREATE TABLE tokens(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-           aid_token TEXT UNIQUE,
-           session TEXT,
-           status TEXT,
-           issued_at TEXT,
-           expires_at TEXT,           
-            used INTEGER DEFAULT 0
-          )
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    aid_token TEXT UNIQUE,
+    token_status TEXT,
+    center_name TEXT,
+    token_issued_at TEXT,
+    expiry_time TEXT
+)
         ''');
 
     await db.execute('''
@@ -79,13 +83,14 @@ class DBHelper {
     aid_token TEXT UNIQUE,
     token_status TEXT,
     token_issued_at TEXT,
-    center_name TEXT
-  )
+    center_name TEXT,
+    expiry_time TEXT
+)
 ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 3) {
+    if (oldVersion < 5) {
       await db.execute('''
       CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,8 +121,9 @@ class DBHelper {
     aid_token TEXT UNIQUE,
     token_status TEXT,
     token_issued_at TEXT,
-    center_name TEXT
-  )
+    center_name TEXT,
+    expiry_time TEXT
+)
 ''');
 
       await db.execute('''
@@ -153,13 +159,32 @@ CREATE TABLE pending_profile(
 
     await addColumn("ALTER TABLE users ADD COLUMN synced INTEGER DEFAULT 0");
 
-    await addColumn("ALTER TABLE tokens ADD COLUMN session TEXT");
+    await addColumn("ALTER TABLE tokens ADD COLUMN token_status TEXT");
 
-    await addColumn("ALTER TABLE tokens ADD COLUMN status TEXT");
+    await addColumn("ALTER TABLE tokens ADD COLUMN center_name TEXT");
 
-    await addColumn("ALTER TABLE tokens ADD COLUMN issued_at TEXT");
+    await addColumn("ALTER TABLE tokens ADD COLUMN token_issued_at TEXT");
 
-    await addColumn("ALTER TABLE tokens ADD COLUMN expires_at TEXT");
+    await addColumn("ALTER TABLE tokens ADD COLUMN expiry_time TEXT");
+    await addColumn(
+      "ALTER TABLE beneficiaries ADD COLUMN total_members INTEGER DEFAULT 0",
+    );
+
+    await addColumn(
+      "ALTER TABLE beneficiaries ADD COLUMN dependents_count INTEGER DEFAULT 0",
+    );
+
+    await addColumn(
+      "ALTER TABLE beneficiaries ADD COLUMN income_level REAL DEFAULT 0",
+    );
+
+    await addColumn(
+      "ALTER TABLE beneficiaries ADD COLUMN disability_present INTEGER DEFAULT 0",
+    );
+
+    await addColumn(
+      "ALTER TABLE beneficiaries ADD COLUMN distribution_center TEXT",
+    );
   }
 
   // Insert a single beneficiary
@@ -184,6 +209,12 @@ CREATE TABLE pending_profile(
       );
     }
     await batch.commit(noResult: true);
+  }
+
+  //Clear beneficiaries before inserting new ones
+  Future<void> clearBeneficiaries() async {
+    final dbClient = await database;
+    await dbClient.delete('beneficiaries');
   }
 
   // Get all beneficiaries
@@ -215,8 +246,8 @@ CREATE TABLE pending_profile(
     final dbClient = await database;
     await dbClient.update(
       'tokens',
-      {'used': 1},
-      where: 'token = ?',
+      {'token_status': 'used'},
+      where: 'aid_token = ?',
       whereArgs: [tokenValue],
     );
   }
@@ -359,6 +390,7 @@ CREATE TABLE pending_profile(
         "token_issued_at": item["token_issued_at"],
         "center_name":
             item["center_name"] ?? item["center"] ?? "Distribution Center",
+        "expiry_time": item["expiry_time"],
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 

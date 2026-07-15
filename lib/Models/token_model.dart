@@ -1,39 +1,35 @@
 class Token {
   final String aidToken;
-  final String session;
-  final String status;
-  final String? issuedAt;
-  final String? expiresAt;
-  final bool used;
+  final String tokenStatus;
+  final String centerName;
+  final String? tokenissuedAt;
+  final String? expiresTime;
 
   Token({
     required this.aidToken,
-    required this.session,
-    required this.status,
-    this.issuedAt,
-    this.expiresAt,
-    this.used = false,
+    required this.tokenStatus,
+    required this.centerName,
+    this.tokenissuedAt,
+    this.expiresTime,
   });
 
   factory Token.fromJson(Map<String, dynamic> json) {
     return Token(
       aidToken: json["aid_token"] ?? "",
-      session: json["session"] ?? "",
-      status: json["status"] ?? "",
-      issuedAt: json["issued_at"],
-      expiresAt: json["expires_at"],
-      used: (json["used"] ?? 0) == 1,
+      tokenStatus: json["session"] ?? "",
+      centerName: json["status"] ?? "",
+      tokenissuedAt: json["issued_at"],
+      expiresTime: json["expires_at"],
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       "aid_token": aidToken,
-      "session": session,
-      "status": status,
-      "issued_at": issuedAt,
-      "expires_at": expiresAt,
-      "used": used ? 1 : 0,
+      "session": tokenStatus,
+      "status": centerName,
+      "issued_at": tokenissuedAt,
+      "expires_at": expiresTime,
     };
   }
 }

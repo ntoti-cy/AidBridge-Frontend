@@ -16,12 +16,12 @@ class TokenGenerating extends TokenState {}
 // One-time event
 // Used only to open QR screen
 class TokenGenerated extends TokenState {
-  final Map<String, dynamic> token;
+  final Map<String, dynamic> response;
 
-  const TokenGenerated(this.token);
+  const TokenGenerated(this.response);
 
   @override
-  List<Object?> get props => [token];
+  List<Object?> get props => [response];
 }
 
 // Error
