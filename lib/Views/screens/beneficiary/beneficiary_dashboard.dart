@@ -547,54 +547,6 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
     );
   }
 
-  Widget _buildPendingSyncCard() {
-    return BlocBuilder<OfflineCubit, OfflineState>(
-      builder: (context, state) {
-        if (state is OfflineBeneficiaryLoaded && state.pendingSync > 0) {
-          return Container(
-            margin: const EdgeInsets.only(top: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.sync_rounded, color: Colors.blue),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Pending Synchronization",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "${state.pendingSync} records waiting\nWill sync automatically when internet returns.",
-                        style: const TextStyle(
-                          color: textSecondaryColor,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
   Widget _buildAidStatusCard() {
     final statusColorVal = hasToken ? successColor : accentColor;
 
