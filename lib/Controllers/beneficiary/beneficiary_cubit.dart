@@ -18,6 +18,9 @@ class BeneficiaryCubit extends Cubit<BeneficiaryState> {
       // ONLINE
       final profile = await authService.getUserProfile();
 
+      // NEW: cache profile locally so it's available offline
+      await offlineUser.cacheProfile(profile);
+
       emit(BeneficiaryLoaded(profile));
     } on DioException catch (_) {
       // OFFLINE

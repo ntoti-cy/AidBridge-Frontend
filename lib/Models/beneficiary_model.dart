@@ -9,6 +9,7 @@ class Beneficiary {
   double incomeLevel;
   bool disabilityPresent;
   String distributionCenter;
+  String distributionSessionId;
 
   Beneficiary({
     this.id,
@@ -21,6 +22,7 @@ class Beneficiary {
     required this.incomeLevel,
     required this.disabilityPresent,
     required this.distributionCenter,
+    required this.distributionSessionId,
   });
 
   factory Beneficiary.fromJson(Map<String, dynamic> json) => Beneficiary(
@@ -41,6 +43,7 @@ class Beneficiary {
       return false;
     })(),
     distributionCenter: json['distribution_center'] ?? '',
+    distributionSessionId: json['distribution_session_id'] ?? '',
   );
 
   Map<String, dynamic> toMap() => {
@@ -54,5 +57,6 @@ class Beneficiary {
     'income_level': incomeLevel,
     'disability_present': disabilityPresent ? 1 : 0,
     'distribution_center': distributionCenter,
+    'distribution_session_id': distributionSessionId,
   };
 }

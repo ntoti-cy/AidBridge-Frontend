@@ -12,20 +12,25 @@ class SyncInitial extends SyncState {}
 class SyncLoading extends SyncState {}
 
 class SyncSuccess extends SyncState {
-  final int count;
-  final String sessionName;
+  final int synced;
+  final int failed;
+  final String message;
 
-  const SyncSuccess(this.count, this.sessionName);
+  const SyncSuccess({
+    required this.synced,
+    required this.failed,
+    required this.message,
+  });
 
   @override
-  List<Object?> get props => [count, sessionName];
+  List<Object?> get props => [synced, failed, message];
 }
 
 class SyncFailure extends SyncState {
-  final String error;
+  final String message;
 
-  const SyncFailure(this.error);
+  const SyncFailure(this.message);
 
   @override
-  List<Object?> get props => [error];
+  List<Object?> get props => [message];
 }

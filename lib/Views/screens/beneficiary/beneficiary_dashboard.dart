@@ -2,8 +2,11 @@ import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/beneficiary/beneficiary_cubit.dart';
 import 'package:aid_bridge/Controllers/beneficiary/beneficiary_state.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_cubit.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_state.dart';
 import 'package:aid_bridge/Controllers/token/token_cubit.dart';
 import 'package:aid_bridge/Controllers/token/token_state.dart';
+import 'package:aid_bridge/Local/offline_cubit.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
 import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -23,19 +26,31 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
   bool hasToken = false;
   int collectionCount = 0;
   bool navigatingToQr = false;
-  String? currentActiveToken; // Store token locally once loaded
+  String? currentActiveToken;
   String? currentExpiryTime;
+
+  void _loadDashboard() {
+    final isOffline = context.read<ConnectivityCubit>().state.isOffline;
+
+    if (!isOffline) {
+      context.read<BeneficiaryCubit>().loadProfile();
+      context.read<TokenCubit>().loadDashboard();
+    } else {
+      context.read<OfflineCubit>().loadBeneficiaryDashboard();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    context.read<BeneficiaryCubit>().loadProfile();
-    context.read<TokenCubit>().loadDashboard();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDashboard();
+    });
   }
 
   Future<void> _refresh() async {
-    await context.read<BeneficiaryCubit>().refreshProfile();
-    await context.read<TokenCubit>().loadDashboard();
+    _loadDashboard();
   }
 
   Future<void> _logout() async {
@@ -207,6 +222,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                     _logout();
                   },
                 ),
+                const Divider(height: 20),
               ],
             ),
           ),
@@ -216,6 +232,20 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
   }
 
   Future<void> _generateToken() async {
+    final isOffline = context.read<ConnectivityCubit>().state.isOffline;
+
+    if (isOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "You are offline. Token generation requires an internet connection.",
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     await context.read<TokenCubit>().requestToken();
   }
 
@@ -228,7 +258,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
     );
     if (!mounted) return;
     navigatingToQr = false;
-    context.read<TokenCubit>().loadDashboard();
+    _loadDashboard();
   }
 
   void _openTokenStatus() {
@@ -237,6 +267,8 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final isOffline = context.watch<ConnectivityCubit>().state.isOffline;
+
     return Scaffold(
       body: AppBackground(
         child: RefreshIndicator(
@@ -244,6 +276,11 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
           color: primaryColor,
           child: MultiBlocListener(
             listeners: [
+              BlocListener<ConnectivityCubit, ConnectivityState>(
+                listener: (context, state) {
+                  _loadDashboard();
+                },
+              ),
               BlocListener<TokenCubit, TokenState>(
                 listener: (context, state) {
                   if (state is TokenGenerated) {
@@ -284,13 +321,34 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                   }
                 },
               ),
+              BlocListener<OfflineCubit, OfflineState>(
+                listener: (context, state) {
+                  if (state is OfflineBeneficiaryLoaded) {
+                    setState(() {
+                      centerName = state.user["distribution_center"] ?? "";
+                      hasToken = state.tokens.isNotEmpty;
+                      collectionCount = state.history.length;
+
+                      currentActiveToken = hasToken
+                          ? state.tokens.first["aid_token"]
+                          : null;
+
+                      currentExpiryTime = hasToken
+                          ? state.tokens.first["expiry_time"]
+                          : null;
+
+                      tokenStatus = hasToken ? "Offline Token" : "No Token";
+                    });
+                  }
+                },
+              ),
             ],
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               children: [
                 const SizedBox(height: 20),
-                _buildWelcomeBanner(),
+                _buildWelcomeBanner(isOffline),
                 const SizedBox(height: 24),
                 _buildAidStatusCard(),
                 const SizedBox(height: 24),
@@ -303,7 +361,7 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _buildInteractiveActions(),
+                _buildInteractiveActions(isOffline),
               ],
             ),
           ),
@@ -312,141 +370,227 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
     );
   }
 
-  Widget _buildWelcomeBanner() {
-    return BlocBuilder<BeneficiaryCubit, BeneficiaryState>(
-      builder: (context, state) {
-        String displayName = "Beneficiary";
-        if (state is BeneficiaryLoaded) {
-          displayName = state.profile["first_name"] ?? "Beneficiary";
-        }
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [primaryColor, containerColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: primaryColor.withOpacity(0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
+  Widget _banner(String displayName, bool isOffline) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [primaryColor, containerColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      "Beneficiary",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: _showProfileMenu,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.person_outline_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            "Profile",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Text(
-                    "Welcome, $displayName",
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text("😊", style: TextStyle(fontSize: 22)),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: 10,
+                  vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "AidBridge Secure Verification Enabled",
+                child: const Text(
+                  "Beneficiary",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: _showProfileMenu,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        "Profile",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-        );
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                "Welcome, $displayName",
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text("😊", style: TextStyle(fontSize: 22)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // --- CONNECTIVITY BADGE ---
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isOffline ? Colors.red.shade50 : Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isOffline ? Icons.cloud_off : Icons.cloud_done,
+                  size: 16,
+                  color: isOffline ? Colors.red : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isOffline ? "Offline Mode" : "Online",
+                  style: TextStyle(
+                    color: isOffline ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // --------------------------
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.verified_user_outlined,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "AidBridge Secure Verification Enabled",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeBanner(bool isOffline) {
+    if (!isOffline) {
+      return BlocBuilder<BeneficiaryCubit, BeneficiaryState>(
+        builder: (context, state) {
+          String displayName = "Beneficiary";
+          if (state is BeneficiaryLoaded) {
+            displayName = state.profile["first_name"] ?? "Beneficiary";
+          }
+          return _banner(displayName, isOffline);
+        },
+      );
+    }
+
+    return BlocBuilder<OfflineCubit, OfflineState>(
+      builder: (context, state) {
+        String displayName = "Beneficiary";
+        if (state is OfflineBeneficiaryLoaded) {
+          displayName = state.user["first_name"] ?? "Beneficiary";
+        }
+        return _banner(displayName, isOffline);
+      },
+    );
+  }
+
+  Widget _buildPendingSyncCard() {
+    return BlocBuilder<OfflineCubit, OfflineState>(
+      builder: (context, state) {
+        if (state is OfflineBeneficiaryLoaded && state.pendingSync > 0) {
+          return Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.sync_rounded, color: Colors.blue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Pending Synchronization",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "${state.pendingSync} records waiting\nWill sync automatically when internet returns.",
+                        style: const TextStyle(
+                          color: textSecondaryColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
       },
     );
   }
@@ -571,33 +715,55 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
     );
   }
 
-  Widget _buildInteractiveActions() {
+  Widget _buildInteractiveActions(bool isOffline) {
     return BlocBuilder<TokenCubit, TokenState>(
       builder: (context, state) {
         final loading = state is TokenGenerating;
 
-        // Determine behavior based on whether the user already has an active token
-        final actionTitle = hasToken
-            ? "View Active Aid Token"
-            : "Generate Aid Token";
-        final actionSubtitle = hasToken
-            ? "Your token is active. Tap to view QR code"
-            : "Request your active collection token/QR";
+        String actionTitle;
+        String actionSubtitle;
+        VoidCallback? onTapAction;
 
-        final VoidCallback? onTapAction = loading
-            ? null
-            : () {
-                if (hasToken &&
-                    currentActiveToken != null &&
-                    currentActiveToken!.isNotEmpty) {
+        if (!isOffline) {
+          actionTitle = hasToken
+              ? "View Active Aid Token"
+              : "Generate Aid Token";
+          actionSubtitle = hasToken
+              ? "Your token is active. Tap to view QR code"
+              : "Request your active collection token/QR";
+
+          onTapAction = loading
+              ? null
+              : () {
+                  if (hasToken &&
+                      currentActiveToken != null &&
+                      currentActiveToken!.isNotEmpty) {
+                    _openQrCode(
+                      currentActiveToken!,
+                      expiryTime: currentExpiryTime,
+                    );
+                  } else {
+                    _generateToken();
+                  }
+                };
+        } else {
+          actionTitle = hasToken ? "View Saved Token" : "No Token Available";
+          actionSubtitle = hasToken
+              ? "View your offline saved collection token"
+              : "No active token found offline";
+
+          onTapAction =
+              hasToken &&
+                  currentActiveToken != null &&
+                  currentActiveToken!.isNotEmpty
+              ? () {
                   _openQrCode(
                     currentActiveToken!,
                     expiryTime: currentExpiryTime,
                   );
-                } else {
-                  _generateToken();
                 }
-              };
+              : null;
+        }
 
         return Column(
           children: [
@@ -647,27 +813,36 @@ class _BeneficiaryDashboardState extends State<BeneficiaryDashboard> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: onTap == null
+                ? Colors.grey.withOpacity(0.1)
+                : color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: color, size: 24),
+          child: Icon(
+            icon,
+            color: onTap == null ? Colors.grey : color,
+            size: 24,
+          ),
         ),
         title: Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            color: textColor,
+            color: onTap == null ? Colors.grey : textColor,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(color: textSecondaryColor, fontSize: 11),
+          style: TextStyle(
+            color: onTap == null ? Colors.grey.shade400 : textSecondaryColor,
+            fontSize: 11,
+          ),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.arrow_forward_ios_rounded,
           size: 16,
-          color: textSecondaryColor,
+          color: onTap == null ? Colors.grey.shade300 : textSecondaryColor,
         ),
         onTap: onTap,
       ),

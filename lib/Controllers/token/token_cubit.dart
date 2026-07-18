@@ -1,3 +1,4 @@
+import 'package:aid_bridge/Controllers/help/db_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 
@@ -50,6 +51,21 @@ class TokenCubit extends Cubit<TokenState> {
       final historyResponse = await authService.getTokenHistory();
 
       final history = historyResponse["history"] ?? [];
+      if (status["has_token"] == true) {
+        await offlineToken.saveToken(
+          Token(
+            aidToken: status["aid_token"]?.toString() ?? "",
+            tokenStatus: status["token_status"]?.toString() ?? "active",
+            centerName: status["center_name"]?.toString() ?? "",
+            tokenIssuedAt: status["token_issued_at"]?.toString(),
+            expiryTime: status["expiry_time"]?.toString(),
+          ),
+        );
+      }
+
+      if (history.isNotEmpty) {
+        await DBHelper().saveHistory(List<Map<String, dynamic>>.from(history));
+      }
 
       emit(TokenDashboardLoaded(status: status, history: history));
     } on DioException {

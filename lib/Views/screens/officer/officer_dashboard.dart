@@ -1,7 +1,12 @@
 import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_cubit.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_state.dart';
 import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
 import 'package:aid_bridge/Controllers/officer/officer_state.dart';
+import 'package:aid_bridge/Controllers/sync/sync_cubit.dart';
+import 'package:aid_bridge/Controllers/sync/sync_state.dart';
+import 'package:aid_bridge/Local/offline_cubit.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
 import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -22,11 +27,23 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
   @override
   void initState() {
     super.initState();
-    context.read<OfficerCubit>().loadDashboard();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDashboardData();
+    });
+  }
+
+  void _loadDashboardData() {
+    final offline = context.read<ConnectivityCubit>().state.isOffline;
+
+    if (offline) {
+      context.read<OfflineCubit>().loadStatistics();
+    } else {
+      context.read<OfficerCubit>().loadDashboard();
+    }
   }
 
   Future<void> _refresh() async {
-    await context.read<OfficerCubit>().loadDashboard();
+    _loadDashboardData();
   }
 
   Future<void> _logout() async {
@@ -105,8 +122,6 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const SizedBox(height: 14),
-
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -138,9 +153,7 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                     Get.toNamed(AppRoutes.officerProfile);
                   },
                 ),
-
                 const Divider(height: 20),
-
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -169,9 +182,7 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                     Get.toNamed(AppRoutes.changePassword);
                   },
                 ),
-
                 const Divider(height: 20),
-
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -214,117 +225,196 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final isOffline = context.watch<ConnectivityCubit>().state.isOffline;
+
     return Scaffold(
       body: AppBackground(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: primaryColor,
-          child: BlocConsumer<OfficerCubit, OfficerState>(
-            listener: (context, state) {
-              if (state is OfficerActionFailure) {
-                setState(() {
-                  startingSession = false;
-                  endingSession = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: errorColor,
-                    content: Text(state.message),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+        child: MultiBlocListener(
+          listeners: [
+            BlocListener<ConnectivityCubit, ConnectivityState>(
+              listener: (context, state) {
+                _loadDashboardData();
+              },
+            ),
+
+            BlocListener<SyncCubit, SyncState>(
+              listener: (context, state) {
+                if (state is SyncSuccess) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: successColor,
+                      content: Text(state.message),
                     ),
-                  ),
-                );
-              }
+                  );
 
-              if (state is SessionStarting) {
-                setState(() {
-                  startingSession = true;
-                });
-              }
+                  // Refresh dashboard statistics
+                  _loadDashboardData();
+                }
 
-              if (state is SessionEnding) {
-                setState(() {
-                  endingSession = true;
-                });
-              }
-
-              if (state is OfficerLoaded) {
-                setState(() {
-                  startingSession = false;
-                  endingSession = false;
-                });
-              }
-
-              if (state is AidDistributed) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: successColor,
-                    content: Text("Aid distributed successfully."),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            builder: (context, state) {
-              if (state is OfficerLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(color: primaryColor),
-                );
-              }
-
-              if (state is OfficerFailure) {
-                return Center(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
+                if (state is SyncFailure) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: errorColor,
+                      content: Text(state.message),
                     ),
-                    onPressed: () {
-                      context.read<OfficerCubit>().loadDashboard();
+                  );
+                }
+              },
+            ),
+          ],
+
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: primaryColor,
+            child: isOffline
+                ? BlocBuilder<OfflineCubit, OfflineState>(
+                    builder: (context, state) {
+                      if (state is OfflineStatisticsLoaded) {
+                        final stats = state.stats;
+
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildWelcomeBanner({}, true),
+                            const SizedBox(height: 24),
+                            _buildOfflineStatisticsGrid(stats),
+                            const SizedBox(height: 24),
+                            _buildSessionControlCard({}, true),
+                            const SizedBox(height: 24),
+                            const Text(
+                              "Quick Actions",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            _buildInteractiveActions(),
+                            const SizedBox(height: 24),
+                            _buildOfflineSyncCard(),
+                            const SizedBox(height: 30),
+                          ],
+                        );
+                      }
+
+                      return const Center(
+                        child: CircularProgressIndicator(color: primaryColor),
+                      );
                     },
-                    child: const Text("Retry"),
+                  )
+                : BlocConsumer<OfficerCubit, OfficerState>(
+                    listener: (context, state) {
+                      if (state is OfficerActionFailure) {
+                        setState(() {
+                          startingSession = false;
+                          endingSession = false;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: errorColor,
+                            content: Text(state.message),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (state is SessionStarting) {
+                        setState(() {
+                          startingSession = true;
+                        });
+                      }
+
+                      if (state is SessionEnding) {
+                        setState(() {
+                          endingSession = true;
+                        });
+                      }
+
+                      if (state is OfficerLoaded) {
+                        setState(() {
+                          startingSession = false;
+                          endingSession = false;
+                        });
+                      }
+
+                      if (state is AidDistributed) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: successColor,
+                            content: Text("Aid distributed successfully."),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                    builder: (context, state) {
+                      if (state is OfficerLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: primaryColor),
+                        );
+                      }
+
+                      if (state is OfficerFailure) {
+                        return Center(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              context.read<OfficerCubit>().loadDashboard();
+                            },
+                            child: const Text("Retry"),
+                          ),
+                        );
+                      }
+
+                      if (state is! OfficerLoaded) {
+                        return const SizedBox();
+                      }
+
+                      final officer = state.officer;
+
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        children: [
+                          const SizedBox(height: 20),
+                          _buildWelcomeBanner(officer, false),
+                          const SizedBox(height: 24),
+                          _buildStatisticsGrid(state),
+                          const SizedBox(height: 24),
+                          _buildSessionControlCard(officer, false),
+                          const SizedBox(height: 24),
+                          const Text(
+                            "Quick Actions",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _buildInteractiveActions(),
+                          const SizedBox(height: 24),
+                          _buildSyncCard(state, false),
+                          const SizedBox(height: 30),
+                        ],
+                      );
+                    },
                   ),
-                );
-              }
-
-              if (state is! OfficerLoaded) {
-                return const SizedBox();
-              }
-
-              final officer = state.officer;
-
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                children: [
-                  const SizedBox(height: 20),
-                  _buildWelcomeBanner(officer),
-                  const SizedBox(height: 24),
-                  _buildStatisticsGrid(state),
-                  const SizedBox(height: 24),
-                  _buildSessionControlCard(officer),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "Quick Actions",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _buildInteractiveActions(),
-                  const SizedBox(height: 24),
-                  _buildSyncCard(state),
-                  const SizedBox(height: 30),
-                ],
-              );
-            },
           ),
         ),
       ),
@@ -332,7 +422,7 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
   }
 
   // WELCOME BANNER
-  Widget _buildWelcomeBanner(Map<String, dynamic> officer) {
+  Widget _buildWelcomeBanner(Map<String, dynamic> officer, bool isOffline) {
     final firstName = officer["first_name"] ?? "Officer";
 
     return Container(
@@ -426,9 +516,33 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
               const Text("😊", style: TextStyle(fontSize: 22)),
             ],
           ),
-
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isOffline ? Colors.red.shade50 : Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isOffline ? Icons.cloud_off : Icons.cloud_done,
+                  size: 16,
+                  color: isOffline ? Colors.red : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isOffline ? "Offline Mode" : "Online",
+                  style: TextStyle(
+                    color: isOffline ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 14),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -495,6 +609,40 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
     );
   }
 
+  // STATISTICS GRID
+  Widget _buildOfflineStatisticsGrid(Map<String, dynamic> stats) {
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            "Served",
+            stats["served"].toString(),
+            Icons.people_outline,
+            successColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _statCard(
+            "Remaining",
+            stats["remaining"].toString(),
+            Icons.inventory_2_outlined,
+            Colors.blue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _statCard(
+            "Total",
+            stats["total"].toString(),
+            Icons.verified_outlined,
+            primaryColor,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _statCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -532,12 +680,15 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
     );
   }
 
-  // SESSION MANAGEMENT CARD (Redesigned & Minimalist)
-  Widget _buildSessionControlCard(Map<String, dynamic> officer) {
+  // SESSION MANAGEMENT CARD
+  Widget _buildSessionControlCard(
+    Map<String, dynamic> officer,
+    bool isOffline,
+  ) {
     final int? centerId = officer["assigned_center_id"];
     final String centerName = officer["assigned_center_name"] ?? "Not Assigned";
 
-    if (centerId == null) {
+    if (centerId == null && !isOffline) {
       return Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -602,7 +753,7 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        centerName,
+                        isOffline ? "Offline Active Center" : centerName,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -639,16 +790,14 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                           vertical: 6,
                         ),
                       ),
-                      onPressed: startingSession
+                      onPressed: (isOffline || startingSession)
                           ? null
                           : () {
                               setState(() {
                                 startingSession = true;
                               });
-
                               context.read<OfficerCubit>().startSession(null);
                             },
-
                       icon: startingSession
                           ? const SizedBox(
                               width: 16,
@@ -676,16 +825,15 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                           vertical: 6,
                         ),
                       ),
-                      onPressed: endingSession
+                      onPressed:
+                          (isOffline || endingSession || centerId == null)
                           ? null
                           : () {
                               setState(() {
                                 endingSession = true;
                               });
-
                               context.read<OfficerCubit>().endSession(centerId);
                             },
-
                       icon: endingSession
                           ? const SizedBox(
                               width: 16,
@@ -713,10 +861,8 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
       ),
     );
   }
-  //====================================================
-  // QUICK ACTIONS
-  //====================================================
 
+  // QUICK ACTIONS
   Widget _buildInteractiveActions() {
     return Column(
       children: [
@@ -791,73 +937,176 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
     );
   }
 
-  //====================================================
-  // SYNC CARD
-  //====================================================
+  // SYNC CARD (ONLINE)
+  Widget _buildSyncCard(OfficerLoaded state, bool isOffline) {
+    return BlocBuilder<SyncCubit, SyncState>(
+      builder: (context, syncState) {
+        bool syncing = syncState is SyncLoading;
 
-  Widget _buildSyncCard(OfficerLoaded state) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: successColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.cloud_done_rounded,
-              color: successColor,
-              size: 28,
-            ),
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.grey.shade200),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Offline Synchronization",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: textColor,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: successColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  "Pending: ${state.pendingSync}  •  Last: ${state.lastSync}",
-                  style: const TextStyle(
-                    color: textSecondaryColor,
-                    fontSize: 11,
-                  ),
+                child: const Icon(
+                  Icons.cloud_done_rounded,
+                  color: successColor,
+                  size: 28,
                 ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
               ),
-            ),
-            onPressed: () {
-              context.read<OfficerCubit>().synchronize();
-            },
-            child: const Text("Sync", style: TextStyle(fontSize: 12)),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Offline Synchronization",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: textColor,
+                      ),
+                    ),
+
+                    const SizedBox(height: 2),
+
+                    Text(
+                      syncing
+                          ? "Synchronizing..."
+                          : "Pending: ${state.pendingSync} • Last: ${state.lastSync}",
+                      style: const TextStyle(
+                        color: textSecondaryColor,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                onPressed: (isOffline || syncing)
+                    ? null
+                    : () {
+                        context.read<SyncCubit>().synchronize();
+                      },
+
+                child: syncing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text("Sync", style: TextStyle(fontSize: 12)),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  // SYNC CARD (OFFLINE)
+  Widget _buildOfflineSyncCard() {
+    return BlocBuilder<OfflineCubit, OfflineState>(
+      builder: (context, state) {
+        int pendingCount = 0;
+        if (state is OfflineStatisticsLoaded) {
+          pendingCount = state.stats["pending"] ?? 0;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.cloud_off_rounded,
+                  color: Colors.orange,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Offline Synchronization",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Pending records: $pendingCount",
+                      style: const TextStyle(
+                        color: textSecondaryColor,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: null, // Disabled in offline mode
+                child: const Text("Sync", style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

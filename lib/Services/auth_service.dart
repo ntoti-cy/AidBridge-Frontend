@@ -1,5 +1,4 @@
 import 'package:aid_bridge/Dio/dio_client.dart';
-import 'package:aid_bridge/Local/offline_user.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -13,8 +12,6 @@ class AuthService {
   final Dio dio = DioClient.dio;
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
-  final OfflineUser _offlineUser = OfflineUser();
 
   String? _accessToken;
 
@@ -199,5 +196,17 @@ class AuthService {
     final response = await dio.get('/api/officer/recent-activity');
 
     return List<Map<String, dynamic>>.from(response.data);
+  }
+
+  //Sync
+  Future<Map<String, dynamic>> synchronize(
+    List<Map<String, dynamic>> records,
+  ) async {
+    final response = await dio.post(
+      "/api/officer/sync",
+      data: {"records": records},
+    );
+
+    return Map<String, dynamic>.from(response.data);
   }
 }

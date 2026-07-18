@@ -47,10 +47,8 @@ class OfflineUser {
         "email": email,
         "password_hash": "$salt:$hash",
         "role": role,
-        "requires_password_change":
-            requiresPasswordChange ? 1 : 0,
-        "is_profile_complete":
-            isProfileComplete ? 1 : 0,
+        "requires_password_change": requiresPasswordChange ? 1 : 0,
+        "is_profile_complete": isProfileComplete ? 1 : 0,
         "synced": 1,
       });
 
@@ -74,8 +72,7 @@ class OfflineUser {
 
       if (row == null) return null;
 
-      final storedHash =
-          row["password_hash"]?.toString() ?? "";
+      final storedHash = row["password_hash"]?.toString() ?? "";
 
       if (!storedHash.contains(":")) return null;
 
@@ -86,8 +83,7 @@ class OfflineUser {
       final salt = parts[0];
       final savedHash = parts[1];
 
-      final enteredHash =
-          _hashPassword(password, salt);
+      final enteredHash = _hashPassword(password, salt);
 
       if (enteredHash != savedHash) {
         return null;
@@ -100,10 +96,8 @@ class OfflineUser {
         "contact": row["contact"],
         "email": row["email"],
         "role": row["role"],
-        "requires_password_change":
-            row["requires_password_change"] == 1,
-        "is_profile_complete":
-            row["is_profile_complete"] == 1,
+        "requires_password_change": row["requires_password_change"] == 1,
+        "is_profile_complete": row["is_profile_complete"] == 1,
       };
     } catch (e) {
       print("Offline login failed: $e");
@@ -115,9 +109,7 @@ class OfflineUser {
   // GET USER BY EMAIL
   // =====================================================
 
-  Future<Map<String, dynamic>?> getUser(
-    String email,
-  ) async {
+  Future<Map<String, dynamic>?> getUser(String email) async {
     try {
       return await _db.getUserByEmail(email);
     } catch (e) {
@@ -170,9 +162,7 @@ class OfflineUser {
   // MARK USER AS SYNCED
   // =====================================================
 
-  Future<void> markUserAsSynced(
-    String email,
-  ) async {
+  Future<void> markUserAsSynced(String email) async {
     try {
       await _db.markUserSynced(email);
     } catch (e) {
@@ -195,70 +185,106 @@ class OfflineUser {
   }
 
   // =====================================================
-// SAVE HISTORY
-// =====================================================
+  // CACHE PROFILE
+  // =====================================================
 
-Future<void> saveHistory(
-  List<Map<String, dynamic>> history,
-) async {
-  try {
-    await _db.saveHistory(history);
-  } catch (e) {
-    print("Failed to save history: $e");
+  Future<void> cacheProfile(Map<String, dynamic> profile) async {
+    try {
+      final email = profile["email"]?.toString() ?? "";
+      if (email.isEmpty) return;
+
+      final existing = await _db.getUserByEmail(email);
+
+      final values = {
+        "first_name": profile["first_name"],
+        "second_name": profile["second_name"],
+        "national_id": profile["national_id"]?.toString(),
+        "contact": profile["contact"],
+        "email": email,
+        "role": profile["role"] ?? existing?["role"] ?? "beneficiary",
+        "distribution_center":
+            profile["distribution_center"] ??
+            existing?["distribution_center"] ??
+            "",
+        "requires_password_change": existing?["requires_password_change"] ?? 0,
+        "is_profile_complete": 1,
+        "synced": 1,
+        // never overwrite the real password hash with nothing
+        "password_hash": existing?["password_hash"] ?? "",
+      };
+
+      print("DEBUG: cacheProfile values = $values");
+
+      if (existing != null) {
+        await _db.updateUser(email, values);
+      } else {
+        await _db.upsertUser(values);
+      }
+    } catch (e) {
+      print("Failed to cache profile: $e");
+    }
   }
-}
 
-// =====================================================
-// GET HISTORY
-// =====================================================
+  // =====================================================
+  // SAVE HISTORY
+  // =====================================================
 
-Future<List<Map<String, dynamic>>> getHistory() async {
-  try {
-    return await _db.getHistory();
-  } catch (e) {
-    print("Failed to load history: $e");
-    return [];
+  Future<void> saveHistory(List<Map<String, dynamic>> history) async {
+    try {
+      await _db.saveHistory(history);
+    } catch (e) {
+      print("Failed to save history: $e");
+    }
   }
-}
 
-// =====================================================
-// SAVE PENDING PROFILE
-// =====================================================
+  // =====================================================
+  // GET HISTORY
+  // =====================================================
 
-Future<void> savePendingProfile(
-  Map<String, dynamic> profile,
-) async {
-  try {
-    await _db.savePendingProfile(profile);
-  } catch (e) {
-    print("Failed to save pending profile: $e");
+  Future<List<Map<String, dynamic>>> getHistory() async {
+    try {
+      return await _db.getHistory();
+    } catch (e) {
+      print("Failed to load history: $e");
+      return [];
+    }
   }
-}
 
-// =====================================================
-// GET PENDING PROFILES
-// =====================================================
+  // =====================================================
+  // SAVE PENDING PROFILE
+  // =====================================================
 
-Future<List<Map<String, dynamic>>> getPendingProfiles() async {
-  try {
-    final profile = await _db.getPendingProfile();
-    return profile == null ? [] : [profile];
-  } catch (e) {
-    print("Failed to get pending profiles: $e");
-    return [];
+  Future<void> savePendingProfile(Map<String, dynamic> profile) async {
+    try {
+      await _db.savePendingProfile(profile);
+    } catch (e) {
+      print("Failed to save pending profile: $e");
+    }
   }
-}
 
-// =====================================================
-// DELETE PENDING PROFILE
-// =====================================================
+  // =====================================================
+  // GET PENDING PROFILES
+  // =====================================================
 
-Future<void> deletePendingProfile(int id) async {
-  try {
-    await _db.deletePendingProfile();
-  } catch (e) {
-    print("Failed to delete pending profile: $e");
+  Future<List<Map<String, dynamic>>> getPendingProfiles() async {
+    try {
+      final profile = await _db.getPendingProfile();
+      return profile == null ? [] : [profile];
+    } catch (e) {
+      print("Failed to get pending profiles: $e");
+      return [];
+    }
   }
-}
 
+  // =====================================================
+  // DELETE PENDING PROFILE
+  // =====================================================
+
+  Future<void> deletePendingProfile(int id) async {
+    try {
+      await _db.deletePendingProfile();
+    } catch (e) {
+      print("Failed to delete pending profile: $e");
+    }
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../Models/beneficiary_model.dart';
@@ -20,7 +22,7 @@ class DBHelper {
     final path = join(await getDatabasesPath(), 'aidbridge.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -38,7 +40,8 @@ class DBHelper {
             dependents_count INTEGER,
             income_level REAL,
             disability_present INTEGER,
-            distribution_center TEXT
+            distribution_center TEXT,
+            distribution_session_id INTEGER
           )
         ''');
 
@@ -63,6 +66,7 @@ class DBHelper {
             email TEXT UNIQUE,
             password_hash TEXT,
             role TEXT,
+            distribution_center TEXT,
             requires_password_change INTEGER DEFAULT 0,
             is_profile_complete INTEGER DEFAULT 1,
             synced INTEGER DEFAULT 0            
@@ -76,6 +80,17 @@ class DBHelper {
             used INTEGER DEFAULT 0
           )
         ''');
+    await db.execute('''
+CREATE TABLE pending_profile(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  total_members INTEGER,
+  dependents_count INTEGER,
+  income_level REAL,
+  disability_present INTEGER,
+  center_id INTEGER,
+  synced INTEGER DEFAULT 0
+)
+''');
 
     await db.execute('''
   CREATE TABLE history(
@@ -87,10 +102,33 @@ class DBHelper {
     expiry_time TEXT
 )
 ''');
+
+    await db.execute('''
+CREATE TABLE pending_sync(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  synced INTEGER DEFAULT 0
+)
+''');
+
+    await db.execute('''
+CREATE TABLE offline_collections(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  aid_token TEXT UNIQUE,
+  beneficiary_id INTEGER,
+  officer_id INTEGER,
+  collection_time TEXT,
+  distribution_center TEXT,
+  distribution_session_id INTEGER,
+  synced INTEGER DEFAULT 0
+)
+''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 5) {
+    if (oldVersion < 8) {
       await db.execute('''
       CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,7 +165,16 @@ class DBHelper {
 ''');
 
       await db.execute('''
-CREATE TABLE pending_profile(
+  CREATE TABLE IF NOT EXISTS pending_sync(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    synced INTEGER DEFAULT 0
+  )
+  ''');
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS pending_profile(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   total_members INTEGER,
   dependents_count INTEGER,
@@ -137,6 +184,19 @@ CREATE TABLE pending_profile(
   synced INTEGER DEFAULT 0
 )
 ''');
+
+      await db.execute('''
+  CREATE TABLE IF NOT EXISTS offline_collections(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    aid_token TEXT UNIQUE,
+    beneficiary_id INTEGER,
+    officer_id INTEGER,
+    collection_time TEXT,
+    distribution_center TEXT,
+    distribution_session_id INTEGER,
+    synced INTEGER DEFAULT 0
+  )
+  ''');
     }
 
     Future<void> addColumn(String sql) async {
@@ -185,6 +245,7 @@ CREATE TABLE pending_profile(
     await addColumn(
       "ALTER TABLE beneficiaries ADD COLUMN distribution_center TEXT",
     );
+    await addColumn("ALTER TABLE users ADD COLUMN distribution_center TEXT");
   }
 
   // Insert a single beneficiary
@@ -453,5 +514,643 @@ CREATE TABLE pending_profile(
     final dbClient = await database;
 
     await dbClient.update("pending_profile", {"synced": 1});
+  }
+
+  Future<void> addPendingSync({
+    required String action,
+    required Map<String, dynamic> payload,
+  }) async {
+    final dbClient = await database;
+
+    await dbClient.insert("pending_sync", {
+      "action": action,
+      "payload": jsonEncode(payload),
+      "created_at": DateTime.now().toIso8601String(),
+      "synced": 0,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingSync() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "pending_sync",
+      where: "synced = ?",
+      whereArgs: [0],
+      orderBy: "id ASC",
+    );
+
+    return result.map((e) {
+      final item = Map<String, dynamic>.from(e);
+
+      item["payload"] = jsonDecode(item["payload"] as String);
+
+      return item;
+    }).toList();
+  }
+
+  Future<void> markPendingSyncComplete(int id) async {
+    final dbClient = await database;
+
+    await dbClient.update(
+      "pending_sync",
+      {"synced": 1},
+      where: "id = ?",
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deletePendingSync(int id) async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_sync", where: "id = ?", whereArgs: [id]);
+  }
+
+  Future<void> clearPendingSync() async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_sync");
+  }
+
+  Future<int> pendingSyncCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      "SELECT COUNT(*) as total FROM pending_sync WHERE synced = 0",
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  //Save Offline Collection
+  Future<void> saveOfflineCollection({
+    required String aidToken,
+    required int beneficiaryId,
+    required int officerId,
+    required String distributionCenter,
+    required int distributionSessionId,
+  }) async {
+    final dbClient = await database;
+
+    await dbClient.insert("offline_collections", {
+      "aid_token": aidToken,
+      "beneficiary_id": beneficiaryId,
+      "officer_id": officerId,
+      "collection_time": DateTime.now().toIso8601String(),
+      "distribution_center": distributionCenter,
+      "distribution_session_id": distributionSessionId,
+      "synced": 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // Get All Offline Collections
+  Future<List<Map<String, dynamic>>> getOfflineCollections() async {
+    final dbClient = await database;
+
+    return await dbClient.query(
+      "offline_collections",
+      orderBy: "collection_time DESC",
+    );
+  }
+
+  //Get Unsynced Collection
+  Future<List<Map<String, dynamic>>> getUnsyncedCollections() async {
+    final dbClient = await database;
+
+    return await dbClient.query(
+      "offline_collections",
+      where: "synced = ?",
+      whereArgs: [0],
+      orderBy: "collection_time ASC",
+    );
+  }
+
+  //Delete One Collection
+  Future<void> deleteOfflineCollection(int id) async {
+    final dbClient = await database;
+
+    await dbClient.delete(
+      "offline_collections",
+      where: "id = ?",
+      whereArgs: [id],
+    );
+  }
+
+  //Clear All Collections
+  Future<void> clearOfflineCollections() async {
+    final dbClient = await database;
+
+    await dbClient.delete("offline_collections");
+  }
+
+  //Has Unsynced Collections
+  Future<bool> hasUnsyncedCollections() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      "SELECT COUNT(*) as total FROM offline_collections WHERE synced = 0",
+    );
+
+    return (Sqflite.firstIntValue(result) ?? 0) > 0;
+  }
+
+  //Count Offline Collections
+  Future<int> offlineCollectionCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      "SELECT COUNT(*) as total FROM offline_collections",
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  //Save Collection  and Queue Sync
+  Future<void> collectAidOffline({
+    required String aidToken,
+    required int beneficiaryId,
+    required int officerId,
+    required String distributionCenter,
+    required int distributionSessionId,
+  }) async {
+    final dbClient = await database;
+
+    await dbClient.transaction((txn) async {
+      await txn.insert("offline_collections", {
+        "aid_token": aidToken,
+        "beneficiary_id": beneficiaryId,
+        "officer_id": officerId,
+        "collection_time": DateTime.now().toIso8601String(),
+        "distribution_center": distributionCenter,
+        "distribution_session_id": distributionSessionId,
+
+        "synced": 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      await txn.update(
+        "beneficiaries",
+        {"token_status": "used"},
+        where: "aid_token = ?",
+        whereArgs: [aidToken],
+      );
+
+      await txn.insert("pending_sync", {
+        "action": "collect_aid",
+        "payload": jsonEncode({
+          "aid_token": aidToken,
+          "beneficiary_id": beneficiaryId,
+          "officer_id": officerId,
+          "distribution_center": distributionCenter,
+          "distribution_session_id": distributionSessionId,
+        }),
+        "created_at": DateTime.now().toIso8601String(),
+        "synced": 0,
+      });
+    });
+  }
+
+  // get Beneficiary by Aid Token , National ID and  Name
+  Future<Beneficiary?> getBeneficiaryByToken(String aidToken) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "aid_token = ?",
+      whereArgs: [aidToken],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return Beneficiary.fromJson(result.first);
+  }
+
+  Future<Beneficiary?> getBeneficiaryByNationalId(String nationalId) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "national_id = ?",
+      whereArgs: [nationalId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return Beneficiary.fromJson(result.first);
+  }
+
+  Future<List<Beneficiary>> searchBeneficiaries(String keyword) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "name LIKE ?",
+      whereArgs: ["%$keyword%"],
+    );
+
+    return result.map((e) => Beneficiary.fromJson(e)).toList();
+  }
+
+  //Get Token by Value
+  Future<Token?> getTokenByValue(String aidToken) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "tokens",
+      where: "aid_token = ?",
+      whereArgs: [aidToken],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return Token.fromJson(result.first);
+  }
+
+  //Check Whether Token, Beneficiary Exists
+  Future<bool> tokenExists(String aidToken) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "tokens",
+      where: "aid_token = ?",
+      whereArgs: [aidToken],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
+  }
+
+  Future<bool> beneficiaryExists(String nationalId) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "national_id = ?",
+      whereArgs: [nationalId],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
+  }
+
+  Future<String?> getBeneficiaryStatus(String aidToken) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      columns: ["token_status"],
+      where: "aid_token = ?",
+      whereArgs: [aidToken],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first["token_status"] as String?;
+  }
+
+  //Verify Beneficiary can Collect Aid
+  Future<bool> canCollectAid(String aidToken) async {
+    final beneficiary = await getBeneficiaryByToken(aidToken);
+
+    if (beneficiary == null) {
+      return false;
+    }
+
+    return beneficiary.tokenStatus.toLowerCase() == "active";
+  }
+
+  Future<List<Beneficiary>> getActiveBeneficiaries() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "token_status = ?",
+      whereArgs: ["active"],
+    );
+
+    return result.map((e) => Beneficiary.fromJson(e)).toList();
+  }
+
+  Future<List<Beneficiary>> getUsedBeneficiaries() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "token_status = ?",
+      whereArgs: ["used"],
+    );
+
+    return result.map((e) => Beneficiary.fromJson(e)).toList();
+  }
+
+  Future<List<Beneficiary>> getExpiredBeneficiaries() async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "token_status = ?",
+      whereArgs: ["expired"],
+    );
+
+    return result.map((e) => Beneficiary.fromJson(e)).toList();
+  }
+
+  Future<List<Beneficiary>> getBeneficiariesByCenter(String center) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "beneficiaries",
+      where: "distribution_center = ?",
+      whereArgs: [center],
+    );
+
+    return result.map((e) => Beneficiary.fromJson(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getUnsyncedUsers() async {
+    final dbClient = await database;
+
+    return await dbClient.query("users", where: "synced = ?", whereArgs: [0]);
+  }
+
+  Future<Map<String, dynamic>?> getUserByNationalId(String nationalId) async {
+    final dbClient = await database;
+
+    final result = await dbClient.query(
+      "users",
+      where: "national_id = ?",
+      whereArgs: [nationalId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first;
+  }
+
+  //Clear Tokens
+  Future<void> clearTokens() async {
+    final dbClient = await database;
+
+    await dbClient.delete("tokens");
+  }
+
+  //Clear History
+  Future<void> clearHistory() async {
+    final dbClient = await database;
+
+    await dbClient.delete("history");
+  }
+
+  //Clear Users
+  Future<void> clearUsers() async {
+    final dbClient = await database;
+
+    await dbClient.delete("users");
+  }
+
+  //Clear Codes
+  Future<void> clearCodes() async {
+    final dbClient = await database;
+
+    await dbClient.delete("codes");
+  }
+
+  Future<void> clearPendingProfile() async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_profile");
+  }
+
+  //Reset Beneficiary Statuses, Token Statuses
+  Future<void> resetBeneficiaryStatuses() async {
+    final dbClient = await database;
+
+    await dbClient.update("beneficiaries", {"token_status": "active"});
+  }
+
+  Future<void> resetTokenStatuses() async {
+    final dbClient = await database;
+
+    await dbClient.update("tokens", {"token_status": "active"});
+  }
+
+  //Officer Logout Cleanup
+  Future<void> clearOfficerOfflineData() async {
+    final dbClient = await database;
+
+    await dbClient.transaction((txn) async {
+      await txn.delete("beneficiaries");
+      await txn.delete("tokens");
+      await txn.delete("history");
+      await txn.delete("codes");
+      await txn.delete("pending_sync");
+      await txn.delete("offline_collections");
+    });
+  }
+
+  Future<void> clearUsedCodes() async {
+    final dbClient = await database;
+
+    await dbClient.delete("codes", where: "used = ?", whereArgs: [1]);
+  }
+
+  //Vacuum Database
+  Future<void> vacuumDatabase() async {
+    final dbClient = await database;
+
+    await dbClient.execute("VACUUM");
+  }
+
+  //Full Refresh Before Download
+  Future<void> prepareForFreshDownload() async {
+    final dbClient = await database;
+
+    await dbClient.transaction((txn) async {
+      await txn.delete("beneficiaries");
+      await txn.delete("tokens");
+      await txn.delete("history");
+      await txn.delete("codes");
+    });
+  }
+
+  Future<int> getTotalBeneficiaries() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      "SELECT COUNT(*) as total FROM beneficiaries",
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getActiveBeneficiaryCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      '''
+    SELECT COUNT(*) as total
+    FROM beneficiaries
+    WHERE token_status = ?
+    ''',
+      ["active"],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getUsedBeneficiaryCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      '''
+    SELECT COUNT(*) as total
+    FROM beneficiaries
+    WHERE token_status = ?
+    ''',
+      ["used"],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getExpiredBeneficiaryCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      '''
+    SELECT COUNT(*) as total
+    FROM beneficiaries
+    WHERE token_status = ?
+    ''',
+      ["expired"],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  //Beneficiareies not served
+  Future<int> getRemainingBeneficiaries() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery(
+      '''
+    SELECT COUNT(*) as total
+    FROM beneficiaries
+    WHERE token_status != ?
+    ''',
+      ["used"],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getPendingSyncCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery('''
+    SELECT COUNT(*) as total
+    FROM pending_sync
+    WHERE synced = 0
+    ''');
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getPendingProfileCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery('''
+    SELECT COUNT(*) as total
+    FROM pending_profile
+    WHERE synced = 0
+    ''');
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getOfflineCollectionsCount() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery('''
+    SELECT COUNT(*) as total
+    FROM offline_collections
+    WHERE synced = 0
+    ''');
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getTotalOfflineCollections() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery('''
+    SELECT COUNT(*) as total
+    FROM offline_collections
+    ''');
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<double> getDistributionProgress() async {
+    final total = await getTotalBeneficiaries();
+
+    if (total == 0) {
+      return 0;
+    }
+
+    final served = await getUsedBeneficiaryCount();
+
+    return served / total;
+  }
+
+  //Synchronization
+  Future<List<Map<String, dynamic>>> pendingSync() async {
+    final dbClient = await database;
+
+    return await dbClient.query(
+      "pending_sync",
+      where: "synced = ?",
+      whereArgs: [0],
+      orderBy: "created_at ASC",
+    );
+  }
+
+  Future<void> markPendingSyncAsSynced(int id) async {
+    final dbClient = await database;
+
+    await dbClient.update(
+      "pending_sync",
+      {"synced": 1},
+      where: "id = ?",
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> removeSyncedRecords() async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_sync", where: "synced = ?", whereArgs: [1]);
+  }
+
+  Future<void> removePendingSync(int id) async {
+    final dbClient = await database;
+
+    await dbClient.delete("pending_sync", where: "id = ?", whereArgs: [id]);
+  }
+
+  Future<bool> hasPendingSynchronization() async {
+    final dbClient = await database;
+
+    final result = await dbClient.rawQuery('''
+    SELECT COUNT(*) as total
+    FROM pending_sync
+    WHERE synced = 0
+  ''');
+
+    return (Sqflite.firstIntValue(result) ?? 0) > 0;
   }
 }

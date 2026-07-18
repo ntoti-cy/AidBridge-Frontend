@@ -1,26 +1,31 @@
+import 'package:aid_bridge/Controllers/sync/sync_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:aid_bridge/Controllers/sync/sync_state.dart';
-import 'package:aid_bridge/Controllers/sync/beneficiary_controller.dart';
+import 'sync_state.dart';
 
 class SyncCubit extends Cubit<SyncState> {
-  final BeneficiaryController _controller = BeneficiaryController();
+  final SyncRepository repository;
 
-  SyncCubit() : super(SyncInitial());
+  SyncCubit(this.repository) : super(SyncInitial());
 
-  Future<void> syncData(String token) async {
+  Future<void> synchronize() async {
     emit(SyncLoading());
 
-    final result = await _controller.syncBeneficiaries(token);
+    try {
+      final result = await repository.synchronize();
 
-    if (result['success'] == true) {
-      emit(SyncSuccess(result['count'], result['session']));
-    } else {
-      emit(SyncFailure(result['error']));
+      emit(
+        SyncSuccess(
+          synced: result["synced"],
+          failed: result["failed"],
+          message: result["message"],
+        ),
+      );
+    } catch (e) {
+      emit(SyncFailure(e.toString()));
     }
   }
-  
-  // Resets the state back to initial after a success/failure dialog is dismissed
-  void resetState() {
+
+  void reset() {
     emit(SyncInitial());
   }
 }

@@ -1,11 +1,11 @@
 import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_cubit.dart';
 import 'package:aid_bridge/Controllers/help/db_helper.dart';
 import 'package:aid_bridge/Controllers/officer/officer_cubit.dart';
 import 'package:aid_bridge/Controllers/officer/officer_state.dart';
 import 'package:aid_bridge/Models/beneficiary_model.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
-import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
@@ -107,99 +107,91 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => OfficerCubit(AuthService()),
-      child: Scaffold(
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: textColor,
-          title: const Text(
-            "Offline Beneficiaries",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-            onPressed: Get.back,
-          ),
+    final isOffline = context.watch<ConnectivityCubit>().state.isOffline;
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: textColor,
+        title: const Text(
+          "Offline Beneficiaries",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        body: AppBackground(
-          child: BlocConsumer<OfficerCubit, OfficerState>(
-            listener: (context, state) async {
-              if (state is OfficerLoading) {
-                setState(() {
-                  downloading = true;
-                });
-              }
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          onPressed: Get.back,
+        ),
+      ),
+      body: AppBackground(
+        child: BlocConsumer<OfficerCubit, OfficerState>(
+          listener: (context, state) async {
+            if (state is OfficerLoading) {
+              setState(() {
+                downloading = true;
+              });
+            }
 
-              if (state is BeneficiariesDownloaded) {
-                setState(() {
-                  downloading = false;
-                });
-                await _loadOfflineData();
-                _updateLastSync();
+            if (state is BeneficiariesDownloaded) {
+              setState(() {
+                downloading = false;
+              });
+              await _loadOfflineData();
+              _updateLastSync();
 
-                if (!mounted) return;
-                _updateLastSync();
+              if (!mounted) return;
+              _updateLastSync();
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: successColor,
-                    content: Text("${state.count} beneficiaries downloaded."),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-
-              if (state is OfficerFailure) {
-                setState(() {
-                  downloading = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: errorColor,
-                    content: Text(state.message),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            builder: (_, state) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _header(),
-                    const SizedBox(height: 20),
-                    _downloadCard(),
-                    const SizedBox(height: 20),
-                    _searchBar(),
-                    const SizedBox(height: 20),
-                    _beneficiaryList(),
-                    const SizedBox(height: 30),
-                  ],
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: successColor,
+                  content: Text("${state.count} beneficiaries downloaded."),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
-            },
-          ),
+            }
+
+            if (state is OfficerFailure) {
+              setState(() {
+                downloading = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: errorColor,
+                  content: Text(state.message),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
+          builder: (_, state) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(isOffline),
+                  const SizedBox(height: 20),
+                  _downloadCard(isOffline),
+                  const SizedBox(height: 20),
+                  _searchBar(),
+                  const SizedBox(height: 20),
+                  _beneficiaryList(),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  // =====================================================
   // HEADER
-  // =====================================================
-
-  Widget _header() {
-    return const Column(
+  Widget _header(isOffline) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           "Offline Database",
           style: TextStyle(
             fontSize: 22,
@@ -207,20 +199,43 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
             color: textColor,
           ),
         ),
-        SizedBox(height: 4),
-        Text(
+        const SizedBox(height: 4),
+        const Text(
           "Download beneficiaries for seamless offline verification.",
           style: TextStyle(color: textSecondaryColor, fontSize: 13),
+        ),
+
+        const SizedBox(height: 12),
+
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isOffline ? Colors.red.shade50 : Colors.green.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Text(
+                isOffline ? "🔴" : "🟢",
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isOffline ? "Offline Mode" : "Online",
+                style: TextStyle(
+                  color: isOffline ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // =====================================================
   // DOWNLOAD CARD
-  // =====================================================
-
-  Widget _downloadCard() {
+  Widget _downloadCard(bool isOffline) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -250,9 +265,20 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: downloading
+              onPressed: (downloading || isOffline)
                   ? null
                   : () {
+                      if (isOffline) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Connect to the internet to download beneficiaries.",
+                            ),
+                          ),
+                        );
+
+                        return;
+                      }
                       context.read<OfficerCubit>().downloadBeneficiaries();
                     },
               style: ElevatedButton.styleFrom(
@@ -273,9 +299,14 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.sync_rounded, size: 20),
+                  : Icon(isOffline ? Icons.cloud_off : Icons.sync_rounded),
               label: Text(
-                downloading ? "Downloading..." : "Download Latest",
+                downloading
+                    ? "Downloading..."
+                    : isOffline
+                    ? "Offline"
+                    : "Download Latest",
+
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -288,10 +319,7 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     );
   }
 
-  // =====================================================
   // SEARCH
-  // =====================================================
-
   Widget _searchBar() {
     return TextField(
       controller: searchController,
@@ -313,10 +341,7 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     );
   }
 
-  // =====================================================
   // BENEFICIARY LIST
-  // =====================================================
-
   Widget _beneficiaryList() {
     if (loading) {
       return const Padding(
@@ -345,10 +370,7 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     );
   }
 
-  // =====================================================
   // BENEFICIARY CARD
-  // =====================================================
-
   Widget _beneficiaryCard(Beneficiary b) {
     final active = (b.tokenStatus).toString().toLowerCase() == "active";
 
@@ -456,10 +478,7 @@ class _BeneficiaryListState extends State<BeneficiaryList> {
     );
   }
 
-  // =====================================================
   // SMALL INFO BOX
-  // =====================================================
-
   Widget _infoBox(String title, String value) {
     return Container(
       padding: const EdgeInsets.all(14),

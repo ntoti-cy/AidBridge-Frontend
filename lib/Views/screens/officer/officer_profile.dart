@@ -1,7 +1,9 @@
 import 'package:aid_bridge/Configs/background.dart';
 import 'package:aid_bridge/Configs/colors.dart';
+import 'package:aid_bridge/Controllers/connectivity/connectivity_cubit.dart';
 import 'package:aid_bridge/Services/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class OfficerProfile extends StatefulWidget {
   const OfficerProfile({super.key});
@@ -18,7 +20,14 @@ class _OfficerProfileState extends State<OfficerProfile> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+
+    final offline = context.read<ConnectivityCubit>().state.isOffline;
+
+    if (!offline) {
+      _loadProfile();
+    } else {
+      loading = false;
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -110,7 +119,16 @@ class _OfficerProfileState extends State<OfficerProfile> {
                 child: CircularProgressIndicator(color: primaryColor),
               )
             : user == null
-            ? const Center(child: Text("Unable to load profile."))
+            ? const Center(
+                child: Text(
+                  "Profile is only available while online.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textSecondaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )
             : SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
