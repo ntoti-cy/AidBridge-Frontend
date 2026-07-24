@@ -253,7 +253,6 @@ class _QrCodeState extends State<QrCode> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               children: [
-                // 7: Reassuring offline info banner if disconnected
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,

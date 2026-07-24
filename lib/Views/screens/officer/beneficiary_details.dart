@@ -415,61 +415,6 @@ class _BeneficiaryDetailsState extends State<BeneficiaryDetails> {
                   ),
 
                   const SizedBox(height: 28),
-
-                  //------------------------------------------------
-                  // Distribute Aid Button
-                  //------------------------------------------------
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: collectingAid || aidCollected
-                          ? null
-                          : () {
-                              setState(() {
-                                collectingAid = true;
-                              });
-
-                              context.read<OfficerCubit>().distributeAid(
-                                beneficiary["aid_token"],
-                              );
-                            },
-                      icon: collectingAid
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.volunteer_activism_rounded,
-                              size: 20,
-                            ),
-                      label: Text(
-                        aidCollected
-                            ? "Aid Already Collected"
-                            : collectingAid
-                            ? "Processing..."
-                            : "Distribute Aid",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
                 ],
               ),
             );

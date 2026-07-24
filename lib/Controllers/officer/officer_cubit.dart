@@ -176,11 +176,9 @@ class OfficerCubit extends Cubit<OfficerState> {
   }
 
   // End Distribution Session
-  Future<void> endSession(int sessionId) async {
+  Future<void> endSession() async {
     try {
-      await authService.dio.post(
-        '/api/officer/end-distribution-session/$sessionId',
-      );
+      await authService.dio.post('/api/officer/end-distribution-session');
       loadDashboard();
     } on DioException catch (e) {
       emit(

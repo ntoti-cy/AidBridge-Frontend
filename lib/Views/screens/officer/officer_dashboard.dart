@@ -825,14 +825,13 @@ class _OfficerDashboardState extends State<OfficerDashboard> {
                           vertical: 6,
                         ),
                       ),
-                      onPressed:
-                          (isOffline || endingSession || centerId == null)
+                      onPressed: (isOffline || endingSession)
                           ? null
                           : () {
                               setState(() {
                                 endingSession = true;
                               });
-                              context.read<OfficerCubit>().endSession(centerId);
+                              context.read<OfficerCubit>().endSession();
                             },
                       icon: endingSession
                           ? const SizedBox(
