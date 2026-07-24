@@ -3,6 +3,7 @@ import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
+import 'package:aid_bridge/Views/widgets/custom_textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
@@ -12,6 +13,7 @@ class Login extends StatelessWidget {
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final passwordVisibilityNotifier = ValueNotifier(false);
 
   bool _parseBool(dynamic value, {bool defaultVal = false}) {
     if (value == null) return defaultVal;
@@ -165,13 +167,11 @@ class Login extends StatelessWidget {
 
                             const SizedBox(height: 20),
 
-                            TextField(
+                            MyTextField(
                               controller: emailController,
-                              decoration: InputDecoration(
-                                labelText: "Email Address",
-                                prefixIcon: const Icon(Icons.email_outlined),
-                                errorText: errors["email"]?.first,
-                              ),
+                              icon: Icons.email_outlined,
+                              hint: "Email",
+                              errorText: errors["email"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "email",
@@ -181,14 +181,14 @@ class Login extends StatelessWidget {
 
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: "Password",
-                                prefixIcon: const Icon(Icons.password),
-                                errorText: errors["password"]?.first,
-                              ),
+                              icon: Icons.password,
+                              hint: "Password",
+                              password: true,
+                              passwordVisibilityNotifier:
+                                  passwordVisibilityNotifier,
+                              errorText: errors["password"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "password",

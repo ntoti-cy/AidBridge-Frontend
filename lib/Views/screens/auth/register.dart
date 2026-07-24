@@ -3,13 +3,13 @@ import 'package:aid_bridge/Configs/colors.dart';
 import 'package:aid_bridge/Controllers/auth/auth_cubit.dart';
 import 'package:aid_bridge/Controllers/auth/auth_state.dart';
 import 'package:aid_bridge/Routes/app_routes.dart';
+import 'package:aid_bridge/Views/widgets/custom_textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
 class Register extends StatelessWidget {
   const Register({super.key});
-
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +19,7 @@ class Register extends StatelessWidget {
     final contactController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
+    final passwordVisibilityNotifier = ValueNotifier(false);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -87,21 +88,17 @@ class Register extends StatelessWidget {
                             const Text(
                               "Create Account",
                               style: TextStyle(
-                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: primaryColor,
                               ),
                             ),
 
                             const SizedBox(height: 20),
-
-                            TextField(
+                            MyTextField(
                               controller: firstnameController,
-                              decoration: InputDecoration(
-                                labelText: 'First Name',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                errorText: errors["first_name"]?.first,
-                              ),
+                              icon: Icons.person_outline,
+                              hint: "First Name",
+                              errorText: errors["first_name"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "first_name",
@@ -111,31 +108,24 @@ class Register extends StatelessWidget {
 
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: secondnameController,
-                              decoration: InputDecoration(
-                                labelText: 'Second Name',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                errorText: errors["second_name"]?.first,
-                              ),
+                              icon: Icons.person_outline,
+                              hint: "Second Name",
+                              errorText: errors["second_name"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "second_name",
                                 );
                               },
                             ),
-
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: nationalidController,
-                              decoration: InputDecoration(
-                                labelText: 'National ID',
-                                prefixIcon: const Icon(
-                                  Icons.assignment_ind_outlined,
-                                ),
-                                errorText: errors["national_id"]?.first,
-                              ),
+                              icon: Icons.assignment_ind_outlined,
+                              hint: "National ID",
+                              errorText: errors["national_id"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "national_id",
@@ -145,13 +135,11 @@ class Register extends StatelessWidget {
 
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: contactController,
-                              decoration: InputDecoration(
-                                labelText: 'Contact',
-                                prefixIcon: const Icon(Icons.phone_outlined),
-                                errorText: errors["contact"]?.first,
-                              ),
+                              icon: Icons.phone_outlined,
+                              hint: "Contact",
+                              errorText: errors["contact"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "contact",
@@ -161,13 +149,11 @@ class Register extends StatelessWidget {
 
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: emailController,
-                              decoration: InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: const Icon(Icons.email_outlined),
-                                errorText: errors["email"]?.first,
-                              ),
+                              icon: Icons.email_outlined,
+                              hint: "Email",
+                              errorText: errors["email"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "email",
@@ -177,14 +163,14 @@ class Register extends StatelessWidget {
 
                             const SizedBox(height: 15),
 
-                            TextField(
+                            MyTextField(
                               controller: passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: const Icon(Icons.password),
-                                errorText: errors["password"]?.first,
-                              ),
+                              icon: Icons.password,
+                              hint: "Password",
+                              password: true,
+                              passwordVisibilityNotifier:
+                                  passwordVisibilityNotifier,
+                              errorText: errors["password"]?.first,
                               onChanged: (_) {
                                 context.read<AuthCubit>().clearFieldError(
                                   "password",

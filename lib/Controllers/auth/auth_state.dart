@@ -52,11 +52,14 @@ class PasswordChanged extends AuthState {
 
 // Failure
 class AuthFailure extends AuthState {
-  final Map<String, List<String>> fieldErrors;
   final String? generalError;
+  final Map<String, List<String>> fieldErrors;
 
-  const AuthFailure({this.fieldErrors = const {}, this.generalError});
+  const AuthFailure({
+    this.generalError,
+    this.fieldErrors = const {}, // Default to empty map
+  });
 
   @override
-  List<Object?> get props => [fieldErrors, generalError];
+  List<Object?> get props => [generalError, fieldErrors];
 }

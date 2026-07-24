@@ -47,13 +47,7 @@ class AuthCubit extends Cubit<AuthState> {
 
       emit(AuthRegistered(response));
     } on DioException catch (e) {
-      emit(
-        AuthFailure(
-          generalError:
-              e.response?.data['error']?.toString() ??
-              "Registration failed. Try again.",
-        ),
-      );
+      _handleDioError(e);
     } catch (e) {
       emit(AuthFailure(generalError: "Unexpected error: $e"));
     }
@@ -159,30 +153,23 @@ class AuthCubit extends Cubit<AuthState> {
     final data = e.response?.data;
 
     if (data is Map<String, dynamic>) {
-      // Validation errors
-      if (data["error"] is Map<String, dynamic>) {
-        final raw = data["error"] as Map<String, dynamic>;
+      // Check for "error" or "errors" map from Flask
+      final errorBody = data["error"] ?? data["errors"];
 
-        final errors = raw.map((key, value) {
+      if (errorBody is Map<String, dynamic>) {
+        final errors = errorBody.map((key, value) {
           if (value is List) {
-            return MapEntry(key, value.map((e) => e.toString()).toList());
+            return MapEntry(key, value.map((item) => item.toString()).toList());
           }
-
           return MapEntry(key, [value.toString()]);
         });
-
+        // Pass the parsed map directly into fieldErrors
         emit(AuthFailure(fieldErrors: errors));
         return;
       }
-
-      // Backend message
-      if (data["error"] is String) {
-        emit(AuthFailure(generalError: data["error"]));
-        return;
-      }
-
-      if (data["message"] is String) {
-        emit(AuthFailure(generalError: data["message"]));
+      // Handle general string errors
+      if (errorBody is String) {
+        emit(AuthFailure(generalError: errorBody));
         return;
       }
     }
